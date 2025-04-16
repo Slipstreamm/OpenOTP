@@ -271,7 +271,7 @@ jobs:
       
 
   create-release:
-    needs: [windows-build, linux-build, android-build, fetch-codemagic-artifacts]
+    needs: [windows-build, linux-build, android-build, fetch-codemagic-artifacts, get-latest-tag]
     runs-on: ubuntu-latest
     steps:
       - name: Download Windows Installer  
