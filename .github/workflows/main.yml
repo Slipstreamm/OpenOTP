@@ -178,89 +178,91 @@ jobs:
       - name: Trigger Codemagic iOS Build
         id: trigger_build
         run: |
-          RESPONSE=$(curl -X POST \
-          -H "Content-Type: application/json" \
-          -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
-          -d '{
-            "appId": "67ff48a213eb8825035b25df",
-            "workflowId": "67ff48a213eb8825035b25de",
-            "branch": "master",
-            "environment": {
-              "TAG_NAME": "${{ needs.get-latest-tag.outputs.tag_name }}"
-            }
-          }' \
-          https://api.codemagic.io/builds)
+          RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
+            -d '{
+              "appId": "67ff48a213eb8825035b25df",
+              "workflowId": "67ff48a213eb8825035b25de",
+              "branch": "master",
+              "environment": {
+                "TAG_NAME": "${{ needs.get-latest-tag.outputs.tag_name }}"
+              }
+            }' \
+            https://api.codemagic.io/builds)
 
           echo "$RESPONSE"
           BUILD_ID=$(echo "$RESPONSE" | jq -r '.buildId')
+          if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" == "null" ]; then
+            echo "Failed to trigger build"
+            exit 1
+          fi
           echo "build_id=${BUILD_ID}" >> "$GITHUB_OUTPUT"
-
-  wait-fixed:
-    name: Wait Fixed Time for Codemagic Build
+        
+  wait-for-codemagic:
+    name: Wait for Codemagic Build to Complete
     runs-on: ubuntu-latest
     needs: ios-build
+    outputs:
+      build_status: ${{ steps.check_status.outputs.status }}
     steps:
-      - name: Wait for 5 minutes
-        run: sleep 300
+      - name: Poll Codemagic Build Status
+        id: check_status
+        run: |
+          BUILD_ID=${{ needs.ios-build.outputs.build_id }}
+          echo "Polling status for build ID: $BUILD_ID"
 
+          for i in {1..30}; do
+            STATUS=$(curl -s -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
+              "https://api.codemagic.io/builds/$BUILD_ID" | jq -r '.status')
+
+            echo "Status: $STATUS"
+
+            if [[ "$STATUS" == "finished" ]]; then
+              echo "Build completed."
+              echo "status=success" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [[ "$STATUS" == "failed" || "$STATUS" == "canceled" ]]; then
+              echo "Build failed or canceled."
+              echo "status=failed" >> "$GITHUB_OUTPUT"
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          echo "Timed out waiting for build to finish"
+          exit 1
+        
   fetch-codemagic-artifacts:
-    name: Fetch iOS IPA from Codemagic
+    name: Fetch IPA from Codemagic
     runs-on: ubuntu-latest
-    needs: [ios-build, wait-fixed]
+    needs: [ios-build, wait-for-codemagic]
     outputs:
       codemagic_artifact: ${{ steps.upload_codemagic.outputs.artifact_path }}
     steps:
-      - name: Get IPA artifact info
-        id: get_artifact_info
+      - name: Get .ipa Artifact URL
+        id: get_artifact_url
         run: |
           BUILD_ID=${{ needs.ios-build.outputs.build_id }}
-          if [ -z "$BUILD_ID" ]; then
-            echo "Error: BUILD_ID is empty. Check if the Codemagic build was triggered correctly."
+
+          BUILD_JSON=$(curl -s -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
+            "https://api.codemagic.io/builds/$BUILD_ID")
+
+          echo "$BUILD_JSON" > build_info.json
+
+          IPA_URL=$(echo "$BUILD_JSON" | jq -r '.artefacts[] | select(.name | endswith(".ipa")) | .url')
+
+          if [ -z "$IPA_URL" ] || [ "$IPA_URL" == "null" ]; then
+            echo "No IPA artifact found."
             exit 1
           fi
 
-          echo "Fetching artifact list for Codemagic build ID: $BUILD_ID"
+          echo "IPA_URL=$IPA_URL" >> $GITHUB_ENV
 
-          RESPONSE=$(curl -s -X GET \
-            -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
-            "https://api.codemagic.io/builds/$BUILD_ID/artifacts")
-
-          echo "$RESPONSE" > artifacts.json
-
-          ARTIFACT_ID=$(jq -r '.artifacts[] | select(.name | endswith(".ipa")) | .id' artifacts.json)
-          FILENAME=$(jq -r '.artifacts[] | select(.name | endswith(".ipa")) | .name' artifacts.json)
-
-          if [ -z "$ARTIFACT_ID" ] || [ "$ARTIFACT_ID" = "null" ]; then
-            echo "Error: No IPA artifact found in response."
-            cat artifacts.json
-            exit 1
-          fi
-
-          echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
-          echo "FILENAME=$FILENAME" >> $GITHUB_ENV
-
-      - name: Generate public URL
-        id: get_public_url
+      - name: Download .ipa
         run: |
-          PUBLIC_URL_RESPONSE=$(curl -s -X POST \
-            -H "Content-Type: application/json" \
-            -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
-            -d '{"expiresAt": '"$(( $(date +%s) + 300 ))"'}' \
-            "https://api.codemagic.io/artifacts/${ARTIFACT_ID}/${FILENAME}/public-url")
-
-          PUBLIC_URL=$(echo "$PUBLIC_URL_RESPONSE" | jq -r '.url')
-
-          if [ -z "$PUBLIC_URL" ] || [ "$PUBLIC_URL" = "null" ]; then
-            echo "Error: Failed to generate public URL."
-            echo "$PUBLIC_URL_RESPONSE"
-            exit 1
-          fi
-
-          echo "PUBLIC_URL=$PUBLIC_URL" >> $GITHUB_ENV
-
-      - name: Download IPA from Codemagic
-        run: |
-          curl -L -o OpenOTP.ipa "$PUBLIC_URL"
+          curl -L -o OpenOTP.ipa "$IPA_URL"
 
       - name: Upload IPA
         id: upload_codemagic
