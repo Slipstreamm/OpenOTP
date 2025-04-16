@@ -217,7 +217,7 @@ jobs:
             exit 1
           fi
     
-      echo "IPA_URL=$IPA_URL" >> $GITHUB_ENV
+          echo "IPA_URL=$IPA_URL" >> $GITHUB_ENV
       - name: Download IPA
         run: |
           curl -L -o OpenOTP.ipa "$IPA_URL"
