@@ -111,18 +111,17 @@ jobs:
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin
           chmod +x AppDir/usr/bin/openotp
 
-          # Create .desktop file
-          mkdir -p AppDir/usr/share/applications
-          cat > AppDir/usr/share/applications/openotp.desktop <<EOF
-          [Desktop Entry]
-          Type=Application
-          Name=OpenOTP
-          Exec=openotp
-          Icon=openotp
-          Categories=Utility;
-          EOF
+          # Create .desktop file using printf to avoid indentation problems
+          mkdir -p AppDir
+          printf '%s\n' \
+            '[Desktop Entry]' \
+            'Type=Application' \
+            'Name=OpenOTP' \
+            'Exec=openotp' \
+            'Icon=openotp' \
+            'Categories=Utility;' > AppDir/openotp.desktop
 
-          # Optionally copy an icon (must be named openotp.png)
+          # Copy icon (must match Icon=openotp and be .png)
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           cp assets/icons/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/openotp.png
 
