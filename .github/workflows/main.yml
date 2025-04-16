@@ -84,7 +84,7 @@ jobs:
       - name: Install apt dependencies
         run: |
           sudo apt-get update
-          sudo apt install -y clang cmake curl git ninja-build pkg-config unzip xz-utils zip libgtk-3-dev liblzma-dev libsecret
+          sudo apt install -y clang cmake curl git ninja-build pkg-config unzip xz-utils zip libgtk-3-dev liblzma-dev libsecret-1-dev
 
       - name: Fix flutter SDK folder permission
         run: git config --global --add safe.directory /tmp/flutter/--
