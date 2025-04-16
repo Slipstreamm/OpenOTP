@@ -214,7 +214,7 @@ jobs:
 
           for i in {1..30}; do
             STATUS=$(curl -s -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
-              "https://api.codemagic.io/builds/$BUILD_ID" | jq -r '.status')
+              "https://api.codemagic.io/builds/$BUILD_ID" | jq -r '.build.status')
 
             echo "Status: $STATUS"
 
