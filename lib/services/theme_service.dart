@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/settings_model.dart';
 import '../utils/page_transitions.dart';
 import '../utils/route_generator.dart';
+import 'auth_service.dart';
 import 'logger_service.dart';
 import 'settings_service.dart';
 
@@ -299,6 +300,7 @@ class ThemeService with ChangeNotifier {
 
   final SettingsService _settingsService = SettingsService();
   final LoggerService _logger = LoggerService();
+  final AuthService _authService = AuthService();
 
   late SettingsModel _settings;
   bool _isInitialized = false;
@@ -345,7 +347,15 @@ class ThemeService with ChangeNotifier {
   Future<void> updateBiometrics(bool useBiometrics) async {
     _logger.d('Updating biometrics setting to: $useBiometrics');
     try {
+      // Update the setting in SettingsModel
       _settings = await _settingsService.updateBiometrics(useBiometrics);
+
+      // Also update the setting in AuthModel
+      final success = await _authService.updateBiometricsSetting(useBiometrics);
+      if (!success) {
+        _logger.w('Failed to update biometrics setting in auth model');
+      }
+
       _logger.i('Biometrics setting updated to: $useBiometrics');
       notifyListeners();
     } catch (e, stackTrace) {

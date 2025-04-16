@@ -405,6 +405,32 @@ class AuthService {
     }
   }
 
+  // Update biometrics setting in auth model
+  Future<bool> updateBiometricsSetting(bool useBiometrics) async {
+    _logger.d('Updating biometrics setting in auth model to: $useBiometrics');
+    try {
+      // Load current auth data
+      final authData = await _loadAuthData();
+
+      // Update biometrics setting
+      final updatedAuthData = authData.copyWith(useBiometrics: useBiometrics);
+
+      // Save updated auth data
+      final success = await _saveAuthData(updatedAuthData);
+
+      if (success) {
+        _logger.i('Biometrics setting in auth model updated successfully to: $useBiometrics');
+      } else {
+        _logger.w('Failed to update biometrics setting in auth model');
+      }
+
+      return success;
+    } catch (e, stackTrace) {
+      _logger.e('Error updating biometrics setting in auth model', e, stackTrace);
+      return false;
+    }
+  }
+
   // Manually lock the app by resetting the last authentication time
   Future<void> lockApp() async {
     _logger.d('Manually locking the app');
@@ -461,17 +487,18 @@ class AuthService {
       // Check if a password is set
       final hasPassword = authData.hasPassword;
 
-      // Check if biometric authentication is available
+      // Check if biometric authentication is available and enabled
       final biometricAvailable = await isBiometricAvailable();
+      final biometricsEnabled = authData.useBiometrics && themeService.settings.useBiometrics;
 
       // If we have no authentication methods, don't require authentication
-      if (!hasPassword && !biometricAvailable) {
+      if (!hasPassword && !(biometricsEnabled && biometricAvailable)) {
         _logger.i('Authentication not required (no authentication methods available)');
         return false;
       }
 
       // If we have a password set or biometrics enabled, check timeout
-      if (hasPassword || (themeService.settings.useBiometrics && biometricAvailable)) {
+      if (hasPassword || (biometricsEnabled && biometricAvailable)) {
         _logger.i('Authentication method available, checking timeout');
 
         // Get the last authentication time
@@ -524,13 +551,17 @@ class AuthService {
     _logger.d('Showing lock screen');
 
     try {
-      // Check if biometric authentication is available
-      final biometricAvailable = await isBiometricAvailable();
-      final hasPassword = await isPasswordSet();
+      // Load auth data
+      final authData = await _loadAuthData();
+      final hasPassword = authData.hasPassword;
 
-      if (!biometricAvailable && !hasPassword) {
-        _logger.w('No authentication methods available');
-        // If no authentication methods are available, consider it authenticated
+      // Check if biometric authentication is available and enabled
+      final biometricAvailable = await isBiometricAvailable();
+      final biometricsEnabled = authData.useBiometrics;
+
+      if ((!biometricAvailable || !biometricsEnabled) && !hasPassword) {
+        _logger.w('No authentication methods available or enabled');
+        // If no authentication methods are available or enabled, consider it authenticated
         await _updateLastAuthTime();
         return true;
       }
@@ -552,7 +583,7 @@ class AuthService {
           return PasswordEntryWidget(
             verifyPassword: verifyPassword,
             authenticateWithBiometrics: authenticateWithBiometrics,
-            biometricAvailable: biometricAvailable,
+            biometricAvailable: biometricAvailable && biometricsEnabled,
             canCancel: canCancel,
             onAuthenticated: () {
               if (!completer.isCompleted) {
@@ -589,8 +620,9 @@ class AuthService {
   Future<bool> authenticateForPasswordChange(BuildContext context) async {
     _logger.d('Authenticating for password change');
 
-    // Check if a password is set
-    final hasPassword = await isPasswordSet();
+    // Load auth data
+    final authData = await _loadAuthData();
+    final hasPassword = authData.hasPassword;
 
     // If no password is set, no authentication is needed
     if (!hasPassword) {
@@ -598,8 +630,9 @@ class AuthService {
       return true;
     }
 
-    // Check if biometric authentication is available
+    // Check if biometric authentication is available and enabled
     final biometricAvailable = await isBiometricAvailable();
+    final biometricsEnabled = authData.useBiometrics;
 
     // Create a completer to handle the result
     final completer = Completer<bool>();
