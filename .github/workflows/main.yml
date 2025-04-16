@@ -209,31 +209,31 @@ jobs:
           echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
 
     fetch-codemagic-artifacts:
-    name: Fetch Codemagic Artifacts
-    runs-on: ubuntu-latest
-    needs: wait-for-codemagic
-
-    outputs:
-      codemagic_artifact: ${{ steps.upload_codemagic.outputs.artifact_path }}
-
-    steps:
-      - name: Download Codemagic Artifacts
-        run: |
-          BUILD_ID=${{ needs.ios-macos-build.outputs.build_id }}
-          curl -X GET \
-            -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
-            "https://api.codemagic.io/artifacts?buildId=$BUILD_ID" -o codemagic-artifacts.zip
-
-      - name: Extract Codemagic Artifacts
-        run: unzip codemagic-artifacts.zip -d codemagic-artifacts
-
-      - name: Upload Codemagic Artifacts
-        id: upload_codemagic
-        uses: actions/upload-artifact@v4
-        with:
-          name: Codemagic-Artifacts
-          path: codemagic-artifacts/
-
+      name: Fetch Codemagic Artifacts
+      runs-on: ubuntu-latest
+      needs: wait-for-codemagic
+  
+      outputs:
+        codemagic_artifact: ${{ steps.upload_codemagic.outputs.artifact_path }}
+  
+      steps:
+        - name: Download Codemagic Artifacts
+          run: |
+            BUILD_ID=${{ needs.ios-macos-build.outputs.build_id }}
+            curl -X GET \
+              -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
+              "https://api.codemagic.io/artifacts?buildId=$BUILD_ID" -o codemagic-artifacts.zip
+  
+        - name: Extract Codemagic Artifacts
+          run: unzip codemagic-artifacts.zip -d codemagic-artifacts
+  
+        - name: Upload Codemagic Artifacts
+          id: upload_codemagic
+          uses: actions/upload-artifact@v4
+          with:
+            name: Codemagic-Artifacts
+            path: codemagic-artifacts/
+  
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
