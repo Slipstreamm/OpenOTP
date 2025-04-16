@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import '../models/device_info_model.dart';
 import '../models/sync_data_model.dart';
 import '../services/lan_sync_service.dart' as lan_sync;
@@ -666,7 +666,7 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
                         onQRViewCreated: (controller) {
                           controller.scannedDataStream.listen((scanData) {
                             if (scanData.code != null) {
-                              controller.dispose();
+                              // QRViewController auto-disposes in qr_code_scanner_plus
                               if (mounted) {
                                 // ignore: use_build_context_synchronously
                                 Navigator.pop(context, scanData.code);

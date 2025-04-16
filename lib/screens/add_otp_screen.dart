@@ -4,7 +4,7 @@ import '../models/otp_entry.dart';
 import '../services/secure_storage_service.dart';
 import '../services/logger_service.dart';
 import '../services/qr_scanner_service.dart';
-import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 
 class AddOtpScreen extends StatefulWidget {
   final bool showQrOptions;
@@ -28,7 +28,6 @@ class _AddOtpScreenState extends State<AddOtpScreen> {
   final QrScannerService _qrScannerService = QrScannerService();
 
   final GlobalKey _qrKey = GlobalKey(debugLabel: 'QR');
-  QRViewController? _qrController;
   bool _isScanning = false;
 
   int _digits = 6;
@@ -71,7 +70,7 @@ class _AddOtpScreenState extends State<AddOtpScreen> {
     _nameController.dispose();
     _secretController.dispose();
     _issuerController.dispose();
-    _qrController?.dispose();
+    // QRViewController auto-disposes in qr_code_scanner_plus
     super.dispose();
   }
 
@@ -160,7 +159,6 @@ class _AddOtpScreenState extends State<AddOtpScreen> {
 
   void _onQRViewCreated(QRViewController controller) {
     _logger.d('QR view created');
-    _qrController = controller;
     controller.scannedDataStream.listen((scanData) {
       if (scanData.code != null && !_isScanning) {
         return; // Prevent multiple scans
@@ -171,7 +169,7 @@ class _AddOtpScreenState extends State<AddOtpScreen> {
         setState(() {
           _isScanning = false;
         });
-        _qrController?.dispose();
+        // QRViewController auto-disposes in qr_code_scanner_plus
         _processScannedCode(scanData.code!);
         if (mounted) {
           Navigator.of(context).pop();

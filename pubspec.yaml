@@ -25,7 +25,7 @@ dependencies:
   qr_flutter: ^4.1.0
 
   # For QR code scanning
-  qr_code_scanner: ^1.0.1
+  qr_code_scanner_plus: ^2.0.10+1
 
   # For QR code scanning from image files
   zxing2: ^0.2.3
