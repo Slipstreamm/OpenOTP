@@ -98,42 +98,54 @@ class _HomeScreenState extends State<HomeScreen> {
   void _startTimer() {
     _logger.d('Starting OTP refresh timer');
 
-    // Generate initial TOTP codes for all entries
-    _generateAllTotpCodes();
+    // Generate initial OTP codes for all entries
+    _generateAllOtpCodes();
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_otpEntries.isNotEmpty) {
-        // Use the OTP service to get the remaining seconds
-        final entry = _otpEntries.first;
-        final secondsRemaining = _otpService.getRemainingSeconds(entry);
+        // Find the first TOTP entry to use for the timer
+        // If there are no TOTP entries, use the first entry's period as a fallback
+        final totpEntry = _otpEntries.firstWhere((entry) => entry.type == OtpType.totp, orElse: () => _otpEntries.first);
+
+        final secondsRemaining = _otpService.getRemainingSeconds(totpEntry);
 
         setState(() {
           _secondsRemaining = secondsRemaining;
         });
 
         // Refresh codes when timer reaches 0
-        if (secondsRemaining == entry.period) {
-          _logger.d('Timer reached 0, refreshing OTP codes');
-          // Regenerate all TOTP codes
-          _generateAllTotpCodes();
+        if (secondsRemaining == totpEntry.period) {
+          _logger.d('Timer reached 0, refreshing TOTP codes');
+          // Regenerate all OTP codes
+          _generateAllOtpCodes();
           setState(() {}); // Trigger rebuild to update UI
         }
       }
     });
   }
 
-  // Generate TOTP codes for all entries and store in cache
-  void _generateAllTotpCodes() {
-    _logger.d('Generating TOTP codes for all entries');
+  // Generate OTP codes for all entries and store in cache
+  Future<void> _generateAllOtpCodes() async {
+    _logger.d('Generating OTP codes for all entries');
     for (final entry in _otpEntries) {
-      final code = _otpService.generateTotp(entry);
+      String code;
+      if (entry.type == OtpType.totp) {
+        code = _otpService.generateTotp(entry);
+      } else {
+        // For HOTP, we don't auto-generate codes, we just use the cached one or show a placeholder
+        if (_totpCache.containsKey(entry.id)) {
+          code = _totpCache[entry.id]!;
+        } else {
+          code = 'TAP TO GENERATE';
+        }
+      }
       _totpCache[entry.id] = code;
 
       // Log appropriate message based on code generation result
       if (code == 'ERROR') {
-        _logger.w('Failed to generate TOTP code for ${entry.name} - invalid secret key');
-      } else {
-        _logger.d('Generated TOTP code for ${entry.name}: $code');
+        _logger.w('Failed to generate OTP code for ${entry.name} - invalid secret key');
+      } else if (code != 'TAP TO GENERATE') {
+        _logger.d('Generated OTP code for ${entry.name}: $code');
       }
     }
   }
@@ -150,9 +162,9 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       _logger.i('Loaded ${entries.length} OTP entries');
 
-      // Generate new TOTP codes for the loaded entries
+      // Generate new OTP codes for the loaded entries
       if (entries.isNotEmpty) {
-        _generateAllTotpCodes();
+        await _generateAllOtpCodes();
         _selectFirstOtpIfNeeded();
       }
     } catch (e, stackTrace) {
@@ -528,7 +540,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 onReorder: _reorderEntries,
                 itemBuilder: (context, index) {
                   final entry = _otpEntries[index];
-                  final code = _totpCache[entry.id] ?? _otpService.generateTotp(entry);
+                  // Use cached OTP code instead of generating on every build
+                  String code = _totpCache[entry.id] ?? 'Loading...';
+
+                  // For HOTP entries, show a placeholder if no code has been generated yet
+                  if (entry.type == OtpType.hotp && code == 'TAP TO GENERATE') {
+                    code = 'TAP TO GENERATE';
+                  }
 
                   return Card(
                     color: Theme.of(context).colorScheme.surface,
@@ -605,8 +623,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemCount: _otpEntries.length,
                 itemBuilder: (context, index) {
                   final entry = _otpEntries[index];
-                  // Use cached TOTP code instead of generating on every build
-                  final code = _totpCache[entry.id] ?? _otpService.generateTotp(entry);
+                  // Use cached OTP code instead of generating on every build
+                  String code = _totpCache[entry.id] ?? 'Loading...';
+
+                  // For HOTP entries, show a placeholder if no code has been generated yet
+                  if (entry.type == OtpType.hotp && code == 'TAP TO GENERATE') {
+                    code = 'TAP TO GENERATE';
+                  }
 
                   return Card(
                     color: Theme.of(context).colorScheme.surface,
@@ -642,44 +665,63 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              code == 'ERROR'
-                                  ? Row(
-                                    children: [
-                                      const Icon(Icons.error, color: Colors.red),
-                                      const SizedBox(width: 8),
-                                      const Text('Invalid Key', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                                      IconButton(
-                                        icon: const Icon(Icons.edit, color: Colors.red),
-                                        onPressed: () => _editOtpEntry(entry),
-                                        tooltip: 'Edit entry to fix key',
-                                      ),
-                                    ],
-                                  )
-                                  : Row(
-                                    children: [
-                                      Text(
-                                        code,
-                                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 0),
-                                        textAlign: TextAlign.left,
-                                      ),
-                                      IconButton(icon: const Icon(Icons.copy), onPressed: () => _copyCodeToClipboard(code), tooltip: 'Copy code'),
-                                    ],
-                                  ),
+                              if (code == 'ERROR')
+                                Row(
+                                  children: [
+                                    const Icon(Icons.error, color: Colors.red),
+                                    const SizedBox(width: 8),
+                                    const Text('Invalid Key', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, color: Colors.red),
+                                      onPressed: () => _editOtpEntry(entry),
+                                      tooltip: 'Edit entry to fix key',
+                                    ),
+                                  ],
+                                )
+                              else if (code == 'TAP TO GENERATE')
+                                Row(
+                                  children: [
+                                    ElevatedButton.icon(
+                                      icon: const Icon(Icons.casino),
+                                      label: const Text('Generate Code'),
+                                      onPressed: () => _generateHotpCode(entry),
+                                    ),
+                                  ],
+                                )
+                              else
+                                Row(
+                                  children: [
+                                    Text(code, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 0), textAlign: TextAlign.left),
+                                    IconButton(icon: const Icon(Icons.copy), onPressed: () => _copyCodeToClipboard(code), tooltip: 'Copy code'),
+                                    if (entry.type == OtpType.hotp)
+                                      IconButton(icon: const Icon(Icons.casino), onPressed: () => _generateHotpCode(entry), tooltip: 'Generate new code'),
+                                  ],
+                                ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            'Refreshes in $_secondsRemaining seconds',
-                            style: TextStyle(
-                              color:
-                                  _secondsRemaining < 5
-                                      ? Colors
-                                          .red // Keep red for warning
-                                      : Theme.of(context).brightness == Brightness.dark
-                                      ? const Color(0xFFB0B0B0) // Dark mode Text Secondary
-                                      : const Color(0xFF4F4F4F), // Light mode Text Secondary
-                            ),
-                          ),
+                          entry.type == OtpType.totp
+                              ? Text(
+                                'Refreshes in $_secondsRemaining seconds',
+                                style: TextStyle(
+                                  color:
+                                      _secondsRemaining < 5
+                                          ? Colors
+                                              .red // Keep red for warning
+                                          : Theme.of(context).brightness == Brightness.dark
+                                          ? const Color(0xFFB0B0B0) // Dark mode Text Secondary
+                                          : const Color(0xFF4F4F4F), // Light mode Text Secondary
+                                ),
+                              )
+                              : Text(
+                                'Counter-based (HOTP)',
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).brightness == Brightness.dark
+                                          ? const Color(0xFFB0B0B0) // Dark mode Text Secondary
+                                          : const Color(0xFF4F4F4F), // Light mode Text Secondary
+                                ),
+                              ),
                         ],
                       ),
                     ),
@@ -802,8 +844,13 @@ class _HomeScreenState extends State<HomeScreen> {
       itemCount: _otpEntries.length,
       itemBuilder: (context, index) {
         final entry = _otpEntries[index];
-        // Use cached TOTP code instead of generating on every build
-        final code = _totpCache[entry.id] ?? _otpService.generateTotp(entry);
+        // Use cached OTP code instead of generating on every build
+        String code = _totpCache[entry.id] ?? 'Loading...';
+
+        // For HOTP entries, show a placeholder if no code has been generated yet
+        if (entry.type == OtpType.hotp && code == 'TAP TO GENERATE') {
+          code = 'TAP TO GENERATE';
+        }
 
         return Card(
           color: Theme.of(context).colorScheme.surface,
@@ -870,7 +917,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           // Token text
                           Text(
-                            'TOTP:',
+                            entry.type == OtpType.totp ? 'TOTP:' : 'HOTP:',
                             style: TextStyle(
                               fontSize: 11,
                               color:
@@ -1009,7 +1056,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  'TOTP is:',
+                  entry.type == OtpType.totp ? 'TOTP is:' : 'HOTP is:',
                   style: TextStyle(
                     fontSize: 14,
                     color:
@@ -1081,6 +1128,30 @@ class _HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Code copied to clipboard')));
   }
 
+  // Generate a new HOTP code by incrementing the counter
+  Future<void> _generateHotpCode(OtpEntry entry) async {
+    _logger.d('Generating new HOTP code for ${entry.name}');
+    try {
+      // Increment the counter and generate a new code
+      final updatedEntry = await _otpService.incrementHotpCounter(entry);
+
+      // Generate the new code
+      final newCode = await _otpService.generateHotp(updatedEntry);
+
+      // Update the cache
+      setState(() {
+        _totpCache[entry.id] = newCode;
+      });
+
+      _logger.i('Generated new HOTP code for ${entry.name}: $newCode');
+    } catch (e, stackTrace) {
+      _logger.e('Error generating HOTP code for ${entry.name}', e, stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error generating code: ${e.toString()}')));
+      }
+    }
+  }
+
   // Build Authy-style view with selected TOTP at top and grid below
   Widget _buildAuthyStyleView() {
     // If no entry is selected, select the first one
@@ -1092,7 +1163,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final selectedEntry = _otpEntries.firstWhere((entry) => entry.id == _selectedOtpId, orElse: () => _otpEntries.first);
 
     // Get the code for the selected entry
-    final selectedCode = _totpCache[selectedEntry.id] ?? _otpService.generateTotp(selectedEntry);
+    String selectedCode = _totpCache[selectedEntry.id] ?? 'Loading...';
+
+    // For HOTP entries, show a placeholder if no code has been generated yet
+    if (selectedEntry.type == OtpType.hotp && selectedCode == 'TAP TO GENERATE') {
+      selectedCode = 'TAP TO GENERATE';
+    }
 
     return Column(
       children: [
@@ -1133,7 +1209,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
               // Token text
               Text(
-                'TOTP is:',
+                selectedEntry.type == OtpType.totp ? 'TOTP is:' : 'HOTP is:',
                 style: TextStyle(
                   fontSize: 14,
                   color:
@@ -1158,27 +1234,51 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   )
-                  : Text(selectedCode, style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: 0), textAlign: TextAlign.center),
+                  : selectedCode == 'TAP TO GENERATE'
+                  ? ElevatedButton.icon(
+                    icon: const Icon(Icons.casino),
+                    label: const Text('Generate Code'),
+                    onPressed: () => _generateHotpCode(selectedEntry),
+                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+                  )
+                  : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(selectedCode, style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: 0), textAlign: TextAlign.center),
+                      if (selectedEntry.type == OtpType.hotp)
+                        IconButton(icon: const Icon(Icons.casino, size: 28), onPressed: () => _generateHotpCode(selectedEntry), tooltip: 'Generate new code'),
+                    ],
+                  ),
               const SizedBox(height: 8),
-              // Timer
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(width: 30, height: 30, child: CircularProgressIndicator(value: _secondsRemaining / selectedEntry.period, strokeWidth: 3)),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Refreshes in $_secondsRemaining seconds',
+              // Timer or counter info
+              selectedEntry.type == OtpType.totp
+                  ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(width: 30, height: 30, child: CircularProgressIndicator(value: _secondsRemaining / selectedEntry.period, strokeWidth: 3)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Refreshes in $_secondsRemaining seconds',
+                        style: TextStyle(
+                          color:
+                              _secondsRemaining < 5
+                                  ? Colors.red
+                                  : Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFFB0B0B0) // Dark mode Text Secondary
+                                  : const Color(0xFF4F4F4F), // Light mode Text Secondary
+                        ),
+                      ),
+                    ],
+                  )
+                  : Text(
+                    'Counter: ${selectedEntry.counter}',
                     style: TextStyle(
                       color:
-                          _secondsRemaining < 5
-                              ? Colors.red
-                              : Theme.of(context).brightness == Brightness.dark
+                          Theme.of(context).brightness == Brightness.dark
                               ? const Color(0xFFB0B0B0) // Dark mode Text Secondary
                               : const Color(0xFF4F4F4F), // Light mode Text Secondary
                     ),
                   ),
-                ],
-              ),
               const SizedBox(height: 16),
               // Copy button
               ElevatedButton.icon(

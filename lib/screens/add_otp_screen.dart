@@ -34,6 +34,8 @@ class _AddOtpScreenState extends State<AddOtpScreen> {
   int _digits = 6;
   int _period = 30;
   String _algorithm = 'SHA1';
+  OtpType _otpType = OtpType.totp;
+  int _counter = 0;
 
   final List<int> _digitOptions = [6, 8];
   final List<int> _periodOptions = [30, 60];
@@ -96,9 +98,13 @@ class _AddOtpScreenState extends State<AddOtpScreen> {
           digits: _digits,
           period: _period,
           algorithm: _algorithm,
+          type: _otpType,
+          counter: _counter,
         );
 
-        _logger.d('Created OTP entry: ${newEntry.name}, Algorithm: ${newEntry.algorithm}, Digits: ${newEntry.digits}, Period: ${newEntry.period}');
+        _logger.d(
+          'Created OTP entry: ${newEntry.name}, Type: ${newEntry.type.name}, Algorithm: ${newEntry.algorithm}, Digits: ${newEntry.digits}, Period: ${newEntry.period}, Counter: ${newEntry.counter}',
+        );
         await _storageService.addOtpEntry(newEntry);
         _logger.i('Successfully saved OTP entry: ${newEntry.name}');
 
@@ -201,6 +207,10 @@ class _AddOtpScreenState extends State<AddOtpScreen> {
         _digits = parsedData['digits'];
         _period = parsedData['period'];
         _algorithm = parsedData['algorithm'];
+        _otpType = OtpType.values[parsedData['type']];
+        if (_otpType == OtpType.hotp && parsedData.containsKey('counter')) {
+          _counter = parsedData['counter'];
+        }
         _showAdvancedSettings = true; // Show advanced settings if non-default values were scanned
       });
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('QR code successfully scanned')));
@@ -324,6 +334,24 @@ class _AddOtpScreenState extends State<AddOtpScreen> {
                       ),
                     ),
                     Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      child: DropdownButtonFormField<OtpType>(
+                        decoration: const InputDecoration(labelText: 'OTP Type', border: OutlineInputBorder()),
+                        value: _otpType,
+                        items: [
+                          DropdownMenuItem<OtpType>(value: OtpType.totp, child: Text('TOTP (Time-based)')),
+                          DropdownMenuItem<OtpType>(value: OtpType.hotp, child: Text('HOTP (Counter-based)')),
+                        ],
+                        onChanged: (newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              _otpType = newValue;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                    Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Row(
                         children: [
@@ -346,21 +374,36 @@ class _AddOtpScreenState extends State<AddOtpScreen> {
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: DropdownButtonFormField<int>(
-                              decoration: const InputDecoration(labelText: 'Period', border: OutlineInputBorder()),
-                              value: _period,
-                              items:
-                                  _periodOptions.map((int value) {
-                                    return DropdownMenuItem<int>(value: value, child: Text('$value seconds'));
-                                  }).toList(),
-                              onChanged: (newValue) {
-                                if (newValue != null) {
-                                  setState(() {
-                                    _period = newValue;
-                                  });
-                                }
-                              },
-                            ),
+                            child:
+                                _otpType == OtpType.totp
+                                    ? DropdownButtonFormField<int>(
+                                      decoration: const InputDecoration(labelText: 'Period', border: OutlineInputBorder()),
+                                      value: _period,
+                                      items:
+                                          _periodOptions.map((int value) {
+                                            return DropdownMenuItem<int>(value: value, child: Text('$value seconds'));
+                                          }).toList(),
+                                      onChanged: (newValue) {
+                                        if (newValue != null) {
+                                          setState(() {
+                                            _period = newValue;
+                                          });
+                                        }
+                                      },
+                                    )
+                                    : TextFormField(
+                                      decoration: const InputDecoration(labelText: 'Initial Counter', border: OutlineInputBorder()),
+                                      initialValue: _counter.toString(),
+                                      keyboardType: TextInputType.number,
+                                      onChanged: (value) {
+                                        final parsedValue = int.tryParse(value);
+                                        if (parsedValue != null) {
+                                          setState(() {
+                                            _counter = parsedValue;
+                                          });
+                                        }
+                                      },
+                                    ),
                           ),
                         ],
                       ),

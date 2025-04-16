@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'logger_service.dart';
 import '../utils/base32_utils.dart';
+import '../models/otp_entry.dart';
 
 class QrScannerService {
   final LoggerService _logger = LoggerService();
@@ -155,17 +156,27 @@ class QrScannerService {
 
   // Parse otpauth URI format
   // Format: otpauth://totp/ISSUER:ACCOUNT?secret=SECRET&issuer=ISSUER&algorithm=ALGORITHM&digits=DIGITS&period=PERIOD
+  // Format: otpauth://hotp/ISSUER:ACCOUNT?secret=SECRET&issuer=ISSUER&algorithm=ALGORITHM&digits=DIGITS&counter=COUNTER
   Map<String, dynamic> parseOtpAuthUri(String uri) {
     _logger.d('Parsing OTP auth URI: $uri');
     try {
-      // Check if the URI is in the correct format
-      if (!uri.startsWith('otpauth://totp/')) {
+      // Check if the URI is in the correct format and determine OTP type
+      OtpType otpType;
+      String typePrefix;
+
+      if (uri.startsWith('otpauth://totp/')) {
+        otpType = OtpType.totp;
+        typePrefix = 'otpauth://totp/';
+      } else if (uri.startsWith('otpauth://hotp/')) {
+        otpType = OtpType.hotp;
+        typePrefix = 'otpauth://hotp/';
+      } else {
         _logger.w('Invalid OTP auth URI format: $uri');
         throw FormatException('Invalid OTP auth URI format');
       }
 
       // Extract the label (which may contain issuer and account name)
-      final labelPart = uri.substring('otpauth://totp/'.length, uri.indexOf('?'));
+      final labelPart = uri.substring(typePrefix.length, uri.indexOf('?'));
       String issuer = '';
       String name = labelPart;
 
@@ -206,10 +217,24 @@ class QrScannerService {
       // Extract optional parameters with defaults
       final algorithm = queryParams['algorithm'] ?? 'SHA1';
       final digits = int.tryParse(queryParams['digits'] ?? '6') ?? 6;
-      final period = int.tryParse(queryParams['period'] ?? '30') ?? 30;
 
-      _logger.i('Successfully parsed OTP auth URI');
-      return {'name': name, 'secret': secret, 'issuer': issuer, 'algorithm': algorithm, 'digits': digits, 'period': period};
+      // Create result map with common fields
+      final result = {'name': name, 'secret': secret, 'issuer': issuer, 'algorithm': algorithm, 'digits': digits, 'type': otpType.index};
+
+      // Add type-specific parameters
+      if (otpType == OtpType.totp) {
+        final period = int.tryParse(queryParams['period'] ?? '30') ?? 30;
+        result['period'] = period;
+      } else {
+        // HOTP
+        final counter = int.tryParse(queryParams['counter'] ?? '0') ?? 0;
+        result['counter'] = counter;
+        // Add period anyway for UI consistency (not used for HOTP generation)
+        result['period'] = 30;
+      }
+
+      _logger.i('Successfully parsed OTP auth URI of type ${otpType.name}');
+      return result;
     } catch (e, stackTrace) {
       _logger.e('Error parsing OTP auth URI', e, stackTrace);
       rethrow;

@@ -1,14 +1,15 @@
 # OpenOTP
 
-A feature-rich, secure OTP (One-Time Password) generator app built with Flutter. OpenOTP allows you to store your OTP keys securely and generate TOTP codes with a clean, customizable interface.
+A feature-rich, secure OTP (One-Time Password) generator app built with Flutter. OpenOTP allows you to store your OTP keys securely and generate TOTP and HOTP codes with a clean, customizable interface.
 
 ## Features
 
 ### Core Functionality
 
 - Securely store OTP keys using Flutter Secure Storage
+- Support for both TOTP (time-based) and HOTP (counter-based) codes
 - Optional AES encryption of OTP keys with a password
-- Customize OTP settings (digits, period, algorithm)
+- Customize OTP settings (digits, period, algorithm, counter)
 - Multiple view options:
   - Grid view
   - List view
@@ -79,7 +80,8 @@ A feature-rich, secure OTP (One-Time Password) generator app built with Flutter.
 
 ### Viewing and Managing OTP Codes
 
-- Tap the dice button to generate a new code
+- For TOTP entries, codes refresh automatically based on time
+- For HOTP entries, tap the dice button to generate a new code
 - Tap the code to copy it to clipboard
 - Enter edit mode to rearrange or delete entries
 - Switch between grid, list, and focus views in settings
