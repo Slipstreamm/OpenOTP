@@ -249,7 +249,7 @@ jobs:
 
           echo "$BUILD_JSON" > build_info.json
 
-          IPA_URL=$(echo "$BUILD_JSON" | jq -r '.artefacts[] | select(.name | endswith(".ipa")) | .url')
+          IPA_URL=$(echo "$BUILD_JSON" | jq -r '.build.artefacts[] | select(.name | endswith(".ipa")) | .url')
 
           if [ -z "$IPA_URL" ] || [ "$IPA_URL" == "null" ]; then
             echo "No IPA artifact found."
