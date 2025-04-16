@@ -110,7 +110,25 @@ jobs:
           mkdir -p AppDir/usr/bin
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin
           chmod +x AppDir/usr/bin/openotp
+
+          # Create .desktop file
+          mkdir -p AppDir/usr/share/applications
+          cat > AppDir/usr/share/applications/openotp.desktop <<EOF
+          [Desktop Entry]
+          Type=Application
+          Name=OpenOTP
+          Exec=openotp
+          Icon=openotp
+          Categories=Utility;
+          EOF
+
+          # Optionally copy an icon (must be named openotp.png)
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          cp path/to/openotp.png AppDir/usr/share/icons/hicolor/256x256/apps/openotp.png
+
           ./appimagetool-x86_64.AppImage AppDir OpenOTP.AppImage
+
+
 
       - name: Upload AppImage
         id: upload_linux
@@ -192,8 +210,8 @@ jobs:
     outputs:
       codemagic_artifact: ${{ steps.upload_codemagic.outputs.artifact_path }}
     steps:
-      - name: Get IPA Artifact URL
-        id: get_artifacts
+      - name: Get IPA artifact info
+        id: get_artifact_info
         run: |
           BUILD_ID=${{ needs.ios-build.outputs.build_id }}
           if [ -z "$BUILD_ID" ]; then
@@ -201,26 +219,48 @@ jobs:
             exit 1
           fi
 
-          echo "Fetching artifacts for Codemagic build ID: $BUILD_ID"
+          echo "Fetching artifact list for Codemagic build ID: $BUILD_ID"
 
           RESPONSE=$(curl -s -X GET \
             -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
             "https://api.codemagic.io/builds/$BUILD_ID/artifacts")
 
-          echo "Codemagic Response: $RESPONSE" > artifacts.json
+          echo "$RESPONSE" > artifacts.json
 
-          IPA_URL=$(jq -r '.artifacts[] | select(.name | endswith(".ipa")) | .url' artifacts.json)
+          ARTIFACT_ID=$(jq -r '.artifacts[] | select(.name | endswith(".ipa")) | .id' artifacts.json)
+          FILENAME=$(jq -r '.artifacts[] | select(.name | endswith(".ipa")) | .name' artifacts.json)
 
-          if [ -z "$IPA_URL" ] || [ "$IPA_URL" = "null" ]; then
-            echo "Error: No IPA URL found in Codemagic response."
+          if [ -z "$ARTIFACT_ID" ] || [ "$ARTIFACT_ID" = "null" ]; then
+            echo "Error: No IPA artifact found in response."
             cat artifacts.json
             exit 1
           fi
 
-          echo "IPA_URL=$IPA_URL" >> $GITHUB_ENV
-      - name: Download IPA
+          echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
+          echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+
+      - name: Generate public URL
+        id: get_public_url
         run: |
-          curl -L -o OpenOTP.ipa "$IPA_URL"
+          PUBLIC_URL_RESPONSE=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
+            -d '{"expiresAt": '"$(( $(date +%s) + 300 ))"'}' \
+            "https://api.codemagic.io/artifacts/${ARTIFACT_ID}/${FILENAME}/public-url")
+
+          PUBLIC_URL=$(echo "$PUBLIC_URL_RESPONSE" | jq -r '.url')
+
+          if [ -z "$PUBLIC_URL" ] || [ "$PUBLIC_URL" = "null" ]; then
+            echo "Error: Failed to generate public URL."
+            echo "$PUBLIC_URL_RESPONSE"
+            exit 1
+          fi
+
+          echo "PUBLIC_URL=$PUBLIC_URL" >> $GITHUB_ENV
+
+      - name: Download IPA from Codemagic
+        run: |
+          curl -L -o OpenOTP.ipa "$PUBLIC_URL"
 
       - name: Upload IPA
         id: upload_codemagic
@@ -228,6 +268,7 @@ jobs:
         with:
           name: OpenOTP-iOS-IPA
           path: OpenOTP.ipa
+      
 
   create-release:
     name: Create GitHub Release
