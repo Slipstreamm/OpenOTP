@@ -14,7 +14,7 @@ The following table outlines which versions of OpenOTP are currently supported w
 If you discover a security vulnerability in OpenOTP:
 
 1. **Do not open a public issue.**
-2. Instead, please email: [security@openotp.lol](mailto:security@openotp.lol)
+2. Instead, create a private report on github, or email: [security@openotp.lol](mailto:security@openotp.lol)
 3. Include as much detail as possible, including:
    - Steps to reproduce
    - Affected platform(s)
