@@ -1,4 +1,4 @@
-![Logo](https://raw.githubusercontent.com/Slipstreamm/OpenOTP/master/assets/horizontal_transparent.png)
+![Logo](https://raw.githubusercontent.com/Slipstreamm/OpenOTP/refs/heads/master/assets/icons/horizontal_transparent.png)
 
 # OpenOTP
 
