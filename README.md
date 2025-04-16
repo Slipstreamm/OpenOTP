@@ -129,7 +129,7 @@ OpenOTP uses multiple layers of security to protect your sensitive data:
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a pull request, or open an issue.
 
 ## License & Copyright
 
