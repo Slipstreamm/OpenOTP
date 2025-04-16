@@ -1,21 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>OpenOTP</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenOTP - Open Source 2FA Authenticator</title>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 2rem; }
-    a.button {
-      display: inline-block; padding: 0.5rem 1rem; margin: 1rem;
-      background: #0366d6; color: #fff; text-decoration: none; border-radius: 4px;
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #111;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header, footer {
+      text-align: center;
+      padding: 1rem;
+    }
+    main {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 2.8rem;
+      margin-bottom: 0.2rem;
+    }
+    h2 {
+      margin-top: 2rem;
+      font-size: 1.5rem;
+    }
+    p {
+      line-height: 1.6;
+    }
+    a {
+      color: #00bcd4;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .button {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.6rem 1.2rem;
+      background-color: #00bcd4;
+      color: #000;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+    .button:hover {
+      background-color: #00acc1;
+    }
+    footer {
+      margin-top: auto;
+      font-size: 0.9rem;
+      color: #777;
     }
   </style>
 </head>
 <body>
-  <h1>OpenOTP</h1>
-  <p>Open-source two-factor authentication app.</p>
-  <a class="button" href="https://github.com/Slipstreamm/OpenOTP/releases/latest">Download Latest Release</a>
-  <a class="button" href="https://github.com/Slipstreamm/OpenOTP">Source Code</a>
+  <header>
+    <h1>OpenOTP</h1>
+    <p>Open Source 2FA Authenticator for Everyone</p>
+  </header>
+
+  <main>
+    <p><strong>OpenOTP</strong> is a privacy-respecting, offline-first two-factor authentication (2FA) app that supports TOTP/HOTP standards. It's built using Flutter and is completely free and open-source under the <strong>GPLv3 license</strong>.</p>
+
+    <h2>🔐 Key Features</h2>
+    <ul>
+      <li>Cross-platform (Windows, Linux, iOS, Android, Web)</li>
+      <li>Works entirely offline – no third-party servers</li>
+      <li>Support for TOTP (RFC 6238) and HOTP (RFC 4226)</li>
+      <li>Sync OTP codes and settings between LAN devices</li>
+      <li>Export OTP codes and settings to a file, with optional AES encryption</li>
+      <li>QR code scanning and manual entry</li>
+      <li>Secure local storage</li>
+    </ul>
+
+    <h2>📦 Download</h2>
+    <p>
+      Latest builds can be found in the <a href="https://github.com/Slipstreamm/OpenOTP/releases" target="_blank">Releases</a> section on GitHub.
+    </p>
+    <a class="button" href="https://github.com/Slipstreamm/OpenOTP/releases" target="_blank">Get OpenOTP</a>
+
+    <h2>🛠️ Contribute</h2>
+    <p>
+      Contributions are welcome! Whether it's code, translations, or testing – check out the 
+      <a href="https://github.com/Slipstreamm/OpenOTP" target="_blank">GitHub repository</a> to get started.
+    </p>
+
+    <h2>📜 License</h2>
+    <p>
+      OpenOTP is licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank">GNU GPLv3</a>. You're free to use, modify, and distribute it under the same license.
+    </p>
+  </main>
+
+  <footer>
+    &copy; 2025 <a href="https://github.com/Slipstreamm" target="_blank">Slipstreamm</a> • OpenOTP is GPLv3 Licensed
+  </footer>
 </body>
 </html>
