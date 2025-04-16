@@ -266,4 +266,34 @@ class SettingsService {
       rethrow;
     }
   }
+
+  /// Clears all settings from shared preferences
+  /// Returns true if successful, false otherwise
+  Future<bool> clearAllSettings() async {
+    _logger.d('Clearing all settings from shared preferences');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_settingsKey);
+      _logger.i('Successfully cleared all settings from shared preferences');
+      return true;
+    } catch (e, stackTrace) {
+      _logger.e('Error clearing settings from shared preferences', e, stackTrace);
+      return false;
+    }
+  }
+
+  /// Clears all shared preferences data (not just settings)
+  /// Returns true if successful, false otherwise
+  Future<bool> clearAllSharedPreferences() async {
+    _logger.d('Clearing all shared preferences data');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      _logger.i('Successfully cleared all shared preferences data');
+      return true;
+    } catch (e, stackTrace) {
+      _logger.e('Error clearing all shared preferences data', e, stackTrace);
+      return false;
+    }
+  }
 }

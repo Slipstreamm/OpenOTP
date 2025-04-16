@@ -355,10 +355,22 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
       // Import OTP entries if selected and available
       if (_importOtpEntries && _importData!.containsKey('otpEntries')) {
         final entriesJson = _importData!['otpEntries'] as List;
-        final entries = entriesJson.map((e) => OtpEntry.fromJson(e)).toList();
+        final newEntries = entriesJson.map((e) => OtpEntry.fromJson(e)).toList();
 
-        await _storageService.saveOtpEntries(entries);
-        _logger.i('Imported ${entries.length} OTP entries');
+        // Get existing entries
+        final existingEntries = await _storageService.getOtpEntries();
+
+        // Identify new entries to add
+        final uniqueNewEntries = _identifyNewEntries(existingEntries, newEntries);
+
+        // Add new entries to existing ones
+        if (uniqueNewEntries.isNotEmpty) {
+          final mergedEntries = [...existingEntries, ...uniqueNewEntries];
+          await _storageService.saveOtpEntries(mergedEntries);
+          _logger.i('Added ${uniqueNewEntries.length} new OTP entries');
+        } else {
+          _logger.i('No new OTP entries to add');
+        }
       }
 
       // Import settings if selected and available
@@ -383,6 +395,24 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
         });
       }
     }
+  }
+
+  // Identify new entries that don't exist in the current list
+  List<OtpEntry> _identifyNewEntries(List<OtpEntry> existingEntries, List<OtpEntry> newEntries) {
+    _logger.d('Identifying new entries');
+
+    // Create a set of existing entry secrets for faster lookup
+    final existingSecrets = existingEntries.map((e) => '${e.issuer}:${e.name}:${e.secret}').toSet();
+
+    // Filter out entries that already exist
+    final uniqueNewEntries =
+        newEntries.where((entry) {
+          final entryKey = '${entry.issuer}:${entry.name}:${entry.secret}';
+          return !existingSecrets.contains(entryKey);
+        }).toList();
+
+    _logger.d('Found ${uniqueNewEntries.length} new entries out of ${newEntries.length} total');
+    return uniqueNewEntries;
   }
 
   @override
@@ -551,7 +581,7 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
                                       SizedBox(height: 8),
                                       Text(
                                         'Importing settings will overwrite your current settings. '
-                                        'Importing OTP entries will replace all your current entries. '
+                                        'Importing OTP entries will add new entries to your existing ones. '
                                         'Make sure to export your current data first if you want to keep it.',
                                       ),
                                     ],
@@ -716,7 +746,7 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
                                       SizedBox(height: 8),
                                       Text(
                                         'Importing settings will overwrite your current settings. '
-                                        'Importing OTP entries will replace all your current entries. '
+                                        'Importing OTP entries will add new entries to your existing ones. '
                                         'Make sure to export your current data first if you want to keep it.',
                                       ),
                                     ],

@@ -737,4 +737,19 @@ class AuthService {
       return false;
     }
   }
+
+  /// Clears all authentication data from secure storage
+  /// Returns true if successful, false otherwise
+  Future<bool> clearAuthData() async {
+    _logger.d('Clearing all authentication data from secure storage');
+    try {
+      // Delete the auth data key from secure storage
+      await _secureStorage.delete(key: _authDataKey);
+      _logger.i('Successfully cleared all authentication data from secure storage');
+      return true;
+    } catch (e, stackTrace) {
+      _logger.e('Error clearing authentication data from secure storage', e, stackTrace);
+      return false;
+    }
+  }
 }

@@ -823,21 +823,34 @@ class _HomeScreenState extends State<HomeScreen> {
     themeService.updateHomeViewType(newViewType);
   }
 
+  // Calculate a responsive aspect ratio that gets closer to 1.0 (square) as screen size increases
+  double _calculateResponsiveAspectRatio(double screenWidth) {
+    // Base aspect ratio - closer to 1.0 means more square-shaped
+    // For smaller screens, we want slightly taller cards (ratio < 1.0)
+    // For larger screens, we want more square cards (ratio closer to 1.0)
+    if (screenWidth > 900) {
+      return 1.0; // Square cards on very large screens
+    } else if (screenWidth > 600) {
+      return 0.95; // Almost square on medium screens
+    } else {
+      return 0.9; // Slightly taller than wide on small screens
+    }
+  }
+
   // Build grid view for OTP entries
   Widget _buildGridView() {
     // Calculate the number of columns based on screen width
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = screenWidth > 900 ? 4 : (screenWidth > 600 ? 3 : 2);
 
-    // Use a responsive aspect ratio based on screen size
-    // Taller cards (lower aspect ratio) for smaller screens to prevent clipping
-    final childAspectRatio = screenWidth > 600 ? 0.95 : 0.8;
+    // Use a more square-shaped aspect ratio based on screen size
+    final childAspectRatio = _calculateResponsiveAspectRatio(screenWidth);
 
     return GridView.builder(
       padding: const EdgeInsets.all(12),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount, // Responsive number of items per row
-        childAspectRatio: childAspectRatio, // Responsive aspect ratio
+        childAspectRatio: childAspectRatio, // More square-shaped aspect ratio
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -859,23 +872,28 @@ class _HomeScreenState extends State<HomeScreen> {
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
             onTap: () {
-              // Show a dialog with the full details
-              _showOtpDetailsDialog(entry, code);
+              // For HOTP entries with 'TAP TO GENERATE', generate a new code
+              if (entry.type == OtpType.hotp && code == 'TAP TO GENERATE') {
+                _generateHotpCode(entry);
+              } else {
+                // Show a dialog with the full details
+                _showOtpDetailsDialog(entry, code);
+              }
             },
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              padding: const EdgeInsets.all(8),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Top section with icon and names
                   Expanded(
-                    flex: 3,
+                    flex: 4,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         // Provider icon
-                        _buildProviderIcon(entry),
+                        Expanded(flex: 3, child: Center(child: _buildProviderIcon(entry))),
                         const SizedBox(height: 4),
                         // Provider name
                         Flexible(
@@ -910,7 +928,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // Middle section with OTP code
                   Expanded(
-                    flex: 2,
+                    flex: 3,
                     child: Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -944,9 +962,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ],
                               )
+                              : code == 'TAP TO GENERATE'
+                              ? ElevatedButton.icon(
+                                icon: const Icon(Icons.casino, size: 14),
+                                label: const Text('Generate', style: TextStyle(fontSize: 12)),
+                                onPressed: () => _generateHotpCode(entry),
+                                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                              )
                               : FittedBox(
                                 fit: BoxFit.scaleDown,
-                                child: Text(code, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0)),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(code, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 0)),
+                                    if (entry.type == OtpType.hotp)
+                                      IconButton(
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        iconSize: 16,
+                                        icon: const Icon(Icons.casino),
+                                        onPressed: () => _generateHotpCode(entry),
+                                        tooltip: 'Generate new code',
+                                      ),
+                                  ],
+                                ),
                               ),
                         ],
                       ),
@@ -964,15 +1003,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SizedBox(
-                              width: 10,
-                              height: 10,
+                              width: 12,
+                              height: 12,
                               child: CircularProgressIndicator(
                                 value: _secondsRemaining / entry.period,
                                 strokeWidth: 1.5,
                                 color: _secondsRemaining < 5 ? Colors.red : null,
                               ),
                             ),
-                            const SizedBox(width: 3),
+                            const SizedBox(width: 4),
                             Flexible(
                               child: Text(
                                 'Expires: $_secondsRemaining s',
@@ -993,11 +1032,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 4),
                         // Copy button
                         SizedBox(
-                          height: 28,
-                          width: 28,
+                          height: 30,
+                          width: 30,
                           child: IconButton(
                             padding: EdgeInsets.zero,
-                            iconSize: 16,
+                            iconSize: 18,
                             icon: const Icon(Icons.copy),
                             onPressed: () => _copyCodeToClipboard(code),
                             tooltip: 'Copy code',
@@ -1075,7 +1114,18 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Text('Invalid Secret Key', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 20)),
                       ],
                     )
-                    : Text(code, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 0), textAlign: TextAlign.center),
+                    : code == 'TAP TO GENERATE' && entry.type == OtpType.hotp
+                    ? ElevatedButton.icon(icon: const Icon(Icons.casino), label: const Text('Generate Code'), onPressed: () => _generateHotpCode(entry))
+                    : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(code, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 0), textAlign: TextAlign.center),
+                        ),
+                        if (entry.type == OtpType.hotp)
+                          IconButton(icon: const Icon(Icons.casino), onPressed: () => _generateHotpCode(entry), tooltip: 'Generate new code'),
+                      ],
+                    ),
                 const SizedBox(height: 16),
                 Text(
                   'Refreshes in $_secondsRemaining seconds',
@@ -1138,8 +1188,16 @@ class _HomeScreenState extends State<HomeScreen> {
       // Generate the new code
       final newCode = await _otpService.generateHotp(updatedEntry);
 
-      // Update the cache
+      // Update the local entries list with the updated entry
       setState(() {
+        // Find and replace the entry in the local list
+        final index = _otpEntries.indexWhere((e) => e.id == entry.id);
+        if (index != -1) {
+          _otpEntries[index] = updatedEntry;
+          _logger.d('Updated local entry with new counter: ${updatedEntry.counter}');
+        }
+
+        // Update the cache
         _totpCache[entry.id] = newCode;
       });
 
@@ -1298,8 +1356,8 @@ class _HomeScreenState extends State<HomeScreen> {
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               // Responsive grid based on screen width
               crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 3,
-              // Use a responsive aspect ratio based on screen size
-              childAspectRatio: MediaQuery.of(context).size.width > 600 ? 0.95 : 0.8,
+              // Use the same square-shaped aspect ratio as the main grid view
+              childAspectRatio: _calculateResponsiveAspectRatio(MediaQuery.of(context).size.width),
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
@@ -1320,16 +1378,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     });
                   },
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    padding: const EdgeInsets.all(8),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Provider icon
-                        Expanded(flex: 3, child: Center(child: _buildProviderIcon(entry))),
+                        Expanded(flex: 6, child: Center(child: _buildProviderIcon(entry))),
                         // Provider name and account
                         Expanded(
-                          flex: 2,
+                          flex: 3,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -1337,7 +1395,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Flexible(
                                 child: Text(
                                   entry.issuer.isNotEmpty ? entry.issuer : entry.name,
-                                  style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 11),
+                                  style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 12),
                                   textAlign: TextAlign.center,
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 1,
@@ -1349,7 +1407,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: Text(
                                     entry.name,
                                     style: TextStyle(
-                                      fontSize: 9,
+                                      fontSize: 10,
                                       color:
                                           Theme.of(context).brightness == Brightness.dark
                                               ? const Color(0xFFB0B0B0) // Dark mode Text Secondary

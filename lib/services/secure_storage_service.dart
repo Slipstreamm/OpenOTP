@@ -338,4 +338,19 @@ class SecureStorageService {
       return 0;
     }
   }
+
+  /// Wipes all OTP entries from secure storage
+  /// Returns true if successful, false otherwise
+  Future<bool> wipeAllOtpEntries() async {
+    _logger.d('Wiping all OTP entries from secure storage');
+    try {
+      // Delete the OTP entries key from secure storage
+      await _secureStorage.delete(key: _otpEntriesKey);
+      _logger.i('Successfully wiped all OTP entries from secure storage');
+      return true;
+    } catch (e, stackTrace) {
+      _logger.e('Error wiping OTP entries from secure storage', e, stackTrace);
+      return false;
+    }
+  }
 }

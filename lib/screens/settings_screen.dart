@@ -6,6 +6,7 @@ import '../services/logger_service.dart';
 import '../services/theme_service.dart';
 import '../services/auth_service.dart';
 import '../services/secure_storage_service.dart';
+import '../services/settings_service.dart';
 import '../utils/page_transitions.dart';
 import '../utils/route_generator.dart';
 
@@ -19,6 +20,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final LoggerService _logger = LoggerService();
   final SecureStorageService _storageService = SecureStorageService();
+  final SettingsService _settingsService = SettingsService();
 
   @override
   void initState() {
@@ -356,6 +358,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     leading: const Icon(Icons.cleaning_services),
                     onTap: () => _cleanupInvalidEntries(context),
                   ),
+                  ListTile(
+                    title: const Text('Wipe All Data'),
+                    subtitle: const Text('Permanently delete all saved data including OTP entries and settings'),
+                    leading: const Icon(Icons.delete_forever, color: Colors.red),
+                    onTap: () => _showWipeDataDialog(context),
+                  ),
                 ],
               ),
 
@@ -532,12 +540,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // Clean up invalid OTP entries
-  Future<void> _cleanupInvalidEntries(BuildContext context) async {
+  Future<void> _cleanupInvalidEntries(BuildContext originalContext) async {
     _logger.d('Starting cleanup of invalid OTP entries');
     try {
       // Show a confirmation dialog first
       final shouldProceed = await showDialog<bool>(
-        context: context,
+        context: originalContext,
         builder: (dialogContext) {
           return AlertDialog(
             title: const Text('Clean Up Invalid Entries'),
@@ -571,7 +579,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       // Store a reference to the scaffold messenger before the async gap
       if (!mounted) return;
-      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(originalContext);
 
       // Show a loading indicator
       scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Cleaning up invalid entries...')));
@@ -591,7 +599,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       // Show error message if still mounted
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error cleaning up entries: ${e.toString()}')));
+        final scaffoldMessenger = ScaffoldMessenger.of(originalContext);
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error cleaning up entries: ${e.toString()}')));
       }
     }
   }
@@ -1236,5 +1245,185 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
     });
+  }
+
+  // Show dialog to wipe all data
+  void _showWipeDataDialog(BuildContext context) async {
+    _logger.d('Showing wipe all data dialog');
+
+    // Check if password is set
+    final hasPassword = await _authService.isPasswordSet();
+    if (!mounted) return;
+
+    // Use a post-frame callback to ensure the context is valid
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (dialogContext) {
+            // Text controller for confirmation text
+            final confirmTextController = TextEditingController();
+            // Password controller if password is set
+            final passwordController = TextEditingController();
+            // Checkbox state
+            bool isConfirmed = false;
+
+            return StatefulBuilder(
+              builder: (context, setState) {
+                return AlertDialog(
+                  title: const Text('Wipe All Data'),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'WARNING: This will permanently delete all your OTP entries, settings, and authentication data. '
+                          'This action cannot be undone.',
+                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 16),
+                        if (hasPassword) ...[
+                          const Text('Enter your password to confirm:'),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: passwordController,
+                            decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Password'),
+                            obscureText: true,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        const Text('Type "WIPE ALL DATA" to confirm:'),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: confirmTextController,
+                          decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Confirmation text'),
+                          onChanged: (value) {
+                            setState(() {
+                              isConfirmed = value == 'WIPE ALL DATA';
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        CheckboxListTile(
+                          title: const Text('I understand this action cannot be undone'),
+                          value: isConfirmed,
+                          onChanged: (value) {
+                            setState(() {
+                              isConfirmed = value ?? false;
+                            });
+                          },
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        _logger.d('Wipe data cancelled');
+                        Navigator.pop(dialogContext);
+                      },
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                      onPressed:
+                          isConfirmed && confirmTextController.text == 'WIPE ALL DATA'
+                              ? () {
+                                _logger.d('Attempting to wipe all data');
+
+                                // Store context and messenger before any async operations
+                                final contextToUse = context;
+                                final messenger = ScaffoldMessenger.of(dialogContext);
+
+                                // Create a function to handle verification and wiping
+                                Future<void> verifyAndWipe() async {
+                                  // Verify password if set
+                                  if (hasPassword) {
+                                    final passwordValid = await _authService.verifyPassword(passwordController.text);
+                                    if (!passwordValid) {
+                                      messenger.showSnackBar(const SnackBar(content: Text('Incorrect password')));
+                                      return;
+                                    }
+                                  }
+
+                                  // Perform the data wipe
+                                  _wipeAllData(contextToUse);
+                                }
+
+                                // Close dialog first
+                                Navigator.pop(dialogContext);
+
+                                // Then start the verification and wipe process
+                                verifyAndWipe();
+                              }
+                              : null,
+                      child: const Text('Wipe All Data'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      }
+    });
+  }
+
+  // Perform the actual data wipe
+  void _wipeAllData(BuildContext originalContext) {
+    _logger.d('Wiping all data');
+
+    // Store a reference to the scaffold messenger before any async operations
+    final scaffoldMessenger = ScaffoldMessenger.of(originalContext);
+    final navigator = Navigator.of(originalContext);
+
+    // Create an async function to handle the actual wiping
+    Future<void> performWipe() async {
+      try {
+        // Show a loading indicator
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Wiping all data...')));
+
+        // Wipe OTP entries from secure storage
+        final otpWipeSuccess = await _storageService.wipeAllOtpEntries();
+        if (!otpWipeSuccess) {
+          _logger.e('Failed to wipe OTP entries');
+          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Error wiping OTP entries')));
+          return;
+        }
+
+        // Clear authentication data
+        final authClearSuccess = await _authService.clearAuthData();
+        if (!authClearSuccess) {
+          _logger.e('Failed to clear authentication data');
+          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Error clearing authentication data')));
+          return;
+        }
+
+        // Clear all shared preferences
+        final prefsClearSuccess = await _settingsService.clearAllSharedPreferences();
+        if (!prefsClearSuccess) {
+          _logger.e('Failed to clear shared preferences');
+          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Error clearing settings')));
+          return;
+        }
+
+        // Show success message
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('All data has been wiped. The app will now restart.'), duration: Duration(seconds: 5)));
+
+        // Give the user a moment to see the message before restarting
+        await Future.delayed(const Duration(seconds: 2));
+
+        // Restart the app by returning to the home screen
+        navigator.pushNamedAndRemoveUntil(RouteGenerator.home, (route) => false);
+      } catch (e, stackTrace) {
+        _logger.e('Error wiping all data', e, stackTrace);
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error wiping data: ${e.toString()}')));
+      }
+    }
+
+    // Start the wiping process
+    performWipe();
   }
 }

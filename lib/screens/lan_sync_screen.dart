@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import '../models/device_info_model.dart';
+import '../models/otp_entry.dart';
 import '../models/sync_data_model.dart';
 import '../services/lan_sync_service.dart' as lan_sync;
 import '../services/logger_service.dart';
@@ -12,6 +14,103 @@ import '../services/secure_storage_service.dart';
 import '../services/settings_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/custom_app_bar.dart';
+
+// A dedicated QR scanner screen to handle QR code scanning safely
+class _QrScannerScreen extends StatefulWidget {
+  final Function(String) onCodeScanned;
+  final String title;
+  final String instructionText;
+
+  const _QrScannerScreen({required this.onCodeScanned, required this.title, required this.instructionText});
+
+  @override
+  State<_QrScannerScreen> createState() => _QrScannerScreenState();
+}
+
+class _QrScannerScreenState extends State<_QrScannerScreen> {
+  final LoggerService _logger = LoggerService();
+  final GlobalKey _qrKey = GlobalKey(debugLabel: 'QRView');
+  QRViewController? _controller;
+  bool _hasScanned = false;
+
+  @override
+  void dispose() {
+    // QRViewController auto-disposes in qr_code_scanner_plus
+    super.dispose();
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    if (_controller != null) {
+      // On hot reload, pause camera on Android, resume on iOS
+      if (Platform.isAndroid) {
+        _controller!.pauseCamera();
+      } else if (Platform.isIOS) {
+        _controller!.resumeCamera();
+      }
+    }
+  }
+
+  void _onQRViewCreated(QRViewController controller) {
+    _controller = controller;
+    controller.scannedDataStream.listen((scanData) {
+      if (scanData.code != null && !_hasScanned) {
+        // Store the code before setting state
+        final code = scanData.code!;
+
+        setState(() {
+          _hasScanned = true;
+        });
+        _logger.i('QR code scanned: $code');
+
+        // Use a microtask to avoid BuildContext across async gaps
+        Future.microtask(() {
+          if (mounted) {
+            // Process the scanned code
+            widget.onCodeScanned(code);
+
+            // Close the scanner screen
+            Navigator.of(context).pop();
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: CustomAppBar(title: widget.title),
+      body: Stack(
+        children: [
+          QRView(
+            key: _qrKey,
+            onQRViewCreated: _onQRViewCreated,
+            overlay: QrScannerOverlayShape(
+              borderColor: Theme.of(context).colorScheme.primary,
+              borderRadius: 10,
+              borderLength: 30,
+              borderWidth: 10,
+              cutOutSize: MediaQuery.of(context).size.width * 0.8,
+            ),
+          ),
+          Positioned(
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Text(
+                widget.instructionText,
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, backgroundColor: Colors.black54),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class LanSyncScreen extends StatefulWidget {
   const LanSyncScreen({super.key});
@@ -188,8 +287,20 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
 
     // Apply OTP entries
     if (data.otpEntries.isNotEmpty) {
-      await _storageService.saveOtpEntries(data.otpEntries);
-      _logger.i('Applied ${data.otpEntries.length} OTP entries');
+      // Get existing entries
+      final existingEntries = await _storageService.getOtpEntries();
+
+      // Identify new entries to add
+      final newEntries = _identifyNewEntries(existingEntries, data.otpEntries);
+
+      // Add new entries to existing ones
+      if (newEntries.isNotEmpty) {
+        final mergedEntries = [...existingEntries, ...newEntries];
+        await _storageService.saveOtpEntries(mergedEntries);
+        _logger.i('Added ${newEntries.length} new OTP entries');
+      } else {
+        _logger.i('No new OTP entries to add');
+      }
     }
 
     // Apply settings if included and allowed
@@ -652,62 +763,28 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
       if (!mounted) return;
 
       if (_qrScannerService.isCameraQrScanningSupported()) {
-        // Navigate to QR scanner
-        final qrCode = await Navigator.push<String>(
-          context,
+        // Use a safer approach by creating a dedicated QR scanner screen
+        await Navigator.of(context).push(
           MaterialPageRoute(
             builder:
-                (context) => Scaffold(
-                  appBar: CustomAppBar(title: 'Scan Server QR Code'),
-                  body: Stack(
-                    children: [
-                      QRView(
-                        key: GlobalKey(debugLabel: 'QR'),
-                        onQRViewCreated: (controller) {
-                          controller.scannedDataStream.listen((scanData) {
-                            if (scanData.code != null) {
-                              // QRViewController auto-disposes in qr_code_scanner_plus
-                              if (mounted) {
-                                // ignore: use_build_context_synchronously
-                                Navigator.pop(context, scanData.code);
-                              }
-                            }
-                          });
-                        },
-                        overlay: QrScannerOverlayShape(
-                          borderColor: Theme.of(context).colorScheme.primary,
-                          borderRadius: 10,
-                          borderLength: 30,
-                          borderWidth: 10,
-                          cutOutSize: MediaQuery.of(context).size.width * 0.8,
-                        ),
-                      ),
-                      const Positioned(
-                        bottom: 20,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Text(
-                            'Scan the server QR code',
-                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, backgroundColor: Colors.black54),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                (context) => _QrScannerScreen(
+                  onCodeScanned: (code) {
+                    if (mounted) {
+                      _processScannedServerQrCode(code);
+                    }
+                  },
+                  title: 'Scan Server QR Code',
+                  instructionText: 'Scan the server QR code',
                 ),
           ),
         );
-
-        if (qrCode != null) {
-          _processScannedServerQrCode(qrCode);
-        }
       } else {
         // Show message for unsupported platforms
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_qrScannerService.getUnsupportedCameraMessage())));
-
-        // Offer to scan from image instead
-        _scanServerQrFromImage();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_qrScannerService.getUnsupportedCameraMessage())));
+          // Offer to scan from image instead
+          _scanServerQrFromImage();
+        }
       }
     } catch (e, stackTrace) {
       _logger.e('Error scanning QR code', e, stackTrace);
@@ -721,14 +798,20 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
   Future<void> _scanServerQrFromImage() async {
     _logger.d('Starting QR scan from image for server connection');
     try {
+      if (!mounted) return;
+
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selecting image...'), duration: Duration(seconds: 1)));
+
       final qrCode = await _qrScannerService.pickAndDecodeQrFromImage();
+
+      // Check mounted again after async operation
+      if (!mounted) return;
 
       if (qrCode != null) {
         _processScannedServerQrCode(qrCode);
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No QR code found in the selected image')));
-        }
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No QR code found in the selected image')));
       }
     } catch (e, stackTrace) {
       _logger.e('Error scanning QR from image', e, stackTrace);
@@ -742,6 +825,8 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
   void _processScannedServerQrCode(String qrCode) {
     _logger.d('Processing scanned server QR code: $qrCode');
     try {
+      if (!mounted) return;
+
       final connectionData = _lanSyncService.parseConnectionQrData(qrCode);
       if (connectionData == null) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid QR code format')));
@@ -757,7 +842,9 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Successfully scanned server: ${connectionData["name"]}')));
     } catch (e, stackTrace) {
       _logger.e('Error processing scanned QR code', e, stackTrace);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error processing QR code: ${e.toString()}')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error processing QR code: ${e.toString()}')));
+      }
     }
   }
 
@@ -771,7 +858,7 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
       children: [
         const Text('Server Mode', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        const Text('Start a server to allow other devices to connect and receive data from this device.'),
+        const Text('Start a server to allow other devices to connect and send data to this device.'),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -873,7 +960,7 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
       children: [
         const Text('Client Mode', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        const Text('Connect to another device to receive OTP entries and settings from that device.'),
+        const Text('Connect to another device to send OTP entries and settings to that device.'),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -960,7 +1047,7 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _sendSyncData,
                   icon: const Icon(Icons.upload),
-                  label: Text('Send Data FROM ${_deviceNameController.text} TO ${_ipAddressController.text}:${_clientPortController.text}'),
+                  label: Text('Send Data FROM ${_deviceNameController.text} TO server at ${_ipAddressController.text}:${_clientPortController.text}'),
                 ),
               ),
             ],
@@ -968,6 +1055,24 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
         ],
       ],
     );
+  }
+
+  // Identify new entries that don't exist in the current list
+  List<OtpEntry> _identifyNewEntries(List<OtpEntry> existingEntries, List<OtpEntry> newEntries) {
+    _logger.d('Identifying new entries');
+
+    // Create a set of existing entry secrets for faster lookup
+    final existingSecrets = existingEntries.map((e) => '${e.issuer}:${e.name}:${e.secret}').toSet();
+
+    // Filter out entries that already exist
+    final uniqueNewEntries =
+        newEntries.where((entry) {
+          final entryKey = '${entry.issuer}:${entry.name}:${entry.secret}';
+          return !existingSecrets.contains(entryKey);
+        }).toList();
+
+    _logger.d('Found ${uniqueNewEntries.length} new entries out of ${newEntries.length} total');
+    return uniqueNewEntries;
   }
 
   // Build error section
