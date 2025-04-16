@@ -1,3 +1,5 @@
+![Logo](https://raw.githubusercontent.com/Slipstreamm/OpenOTP/master/assets/horizontal_transparent.png)
+
 # OpenOTP
 
 A feature-rich, secure OTP (One-Time Password) generator app built with Flutter. OpenOTP allows you to store your OTP keys securely and generate TOTP and HOTP codes with a clean, customizable interface.
