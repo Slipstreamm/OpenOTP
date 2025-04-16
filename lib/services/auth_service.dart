@@ -651,7 +651,7 @@ class AuthService {
         return PasswordEntryWidget(
           verifyPassword: verifyPassword,
           authenticateWithBiometrics: authenticateWithBiometrics,
-          biometricAvailable: biometricAvailable,
+          biometricAvailable: biometricAvailable && biometricsEnabled,
           canCancel: true,
           onAuthenticated: () {
             if (!completer.isCompleted) {
