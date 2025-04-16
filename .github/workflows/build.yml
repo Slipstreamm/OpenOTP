@@ -20,115 +20,6 @@ jobs:
           echo "tag=$TAG" >> $GITHUB_ENV
           echo "::set-output name=tag::${TAG}"
 
-  windows-build:
-    name: Build for Windows (Inno Setup)
-    runs-on: windows-latest
-    needs: get-latest-tag
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: 'stable'
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Windows app
-        run: flutter build windows
-
-      - name: Install Inno Setup
-        run: choco install innosetup -y
-
-      - name: Create Inno Setup script
-        run: |
-          echo ; Inno Setup script to package the Flutter app > package.iss
-          echo [Setup] >> package.iss
-          echo AppName=OpenOTP >> package.iss
-          echo AppVersion=${{ needs.get-latest-tag.outputs.tag_name }} >> package.iss
-          echo DefaultDirName={pf}\OpenOTP >> package.iss
-          echo DefaultGroupName=OpenOTP >> package.iss
-          echo OutputBaseFilename=OpenOTPInstaller >> package.iss
-          echo [Files] >> package.iss
-          echo Source: "build\windows\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs >> package.iss
-          echo [Icons] >> package.iss
-          echo Name: "{group}\OpenOTP"; Filename: "{app}\OpenOTP.exe" >> package.iss
-
-      - name: Create Installer
-        run: iscc package.iss
-
-      - name: Upload Installer
-        uses: actions/upload-artifact@v3
-        with:
-          name: OpenOTP-Windows-Installer
-          path: OpenOTPInstaller.exe
-
-  linux-build:
-    name: Build for Linux (AppImage)
-    runs-on: ubuntu-latest
-    needs: get-latest-tag
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: 'stable'
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Linux app
-        run: flutter build linux
-
-      - name: Install AppImageTool
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y appimagetool
-
-      - name: Package as AppImage
-        run: |
-          mkdir -p AppDir/usr/bin
-          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin
-          appimagetool AppDir OpenOTP.AppImage
-
-      - name: Upload AppImage
-        uses: actions/upload-artifact@v3
-        with:
-          name: OpenOTP-Linux-AppImage
-          path: OpenOTP.AppImage
-
-  android-build:
-    name: Build for Android (APK)
-    runs-on: ubuntu-latest
-    needs: get-latest-tag
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: 'stable'
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Android APK
-        run: flutter build apk
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v3
-        with:
-          name: OpenOTP-Android-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
-
   ios-macos-build:
     name: Trigger iOS and macOS Build on Codemagic
     runs-on: ubuntu-latest
@@ -136,8 +27,9 @@ jobs:
 
     steps:
       - name: Trigger Codemagic Build
+        id: trigger_build
         run: |
-          curl -X POST \
+          RESPONSE=$(curl -X POST \
           -H "Content-Type: application/json" \
           -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
           -d '{
@@ -148,12 +40,38 @@ jobs:
               "TAG_NAME": "${{ needs.get-latest-tag.outputs.tag_name }}"
             }
           }' \
-          https://api.codemagic.io/builds
+          https://api.codemagic.io/builds)
+
+          echo $RESPONSE
+          BUILD_ID=$(echo $RESPONSE | jq -r '.buildId')
+          echo "::set-output name=build_id::$BUILD_ID"
+
+  fetch-codemagic-artifacts:
+    name: Fetch Codemagic Artifacts
+    runs-on: ubuntu-latest
+    needs: ios-macos-build
+    steps:
+      - name: Download Codemagic Artifacts
+        run: |
+          ARTIFACTS_URL="https://api.codemagic.io/artifacts?buildId=${{ needs.ios-macos-build.outputs.build_id }}"
+          curl -X GET \
+          -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
+          $ARTIFACTS_URL -o codemagic-artifacts.zip
+
+      - name: Extract Codemagic Artifacts
+        run: |
+          unzip codemagic-artifacts.zip -d codemagic-artifacts
+
+      - name: Upload Codemagic Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: Codemagic-Artifacts
+          path: codemagic-artifacts/
 
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [windows-build, linux-build, android-build]
+    needs: [fetch-codemagic-artifacts]
     steps:
       - name: Download Artifacts
         uses: actions/download-artifact@v3
@@ -171,6 +89,7 @@ jobs:
             - Windows Installer
             - Linux AppImage
             - Android APK
+            - iOS/macOS Builds
           draft: false
           prerelease: false
         env:
