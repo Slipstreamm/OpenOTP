@@ -19,6 +19,15 @@
       text-align: center;
       padding: 1rem;
     }
+    header a {
+      color: #00bcd4;
+      margin: 0 1rem;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    header a:hover {
+      text-decoration: underline;
+    }
     main {
       max-width: 800px;
       margin: 0 auto;
@@ -54,6 +63,25 @@
     .button:hover {
       background-color: #00acc1;
     }
+    .donate-section {
+      margin-top: 1rem;
+    }
+    .donate-dropdown {
+      margin-top: 0.5rem;
+      display: none;
+      background: #222;
+      padding: 1rem;
+      border-radius: 6px;
+    }
+    .donate-button {
+      margin-top: 1rem;
+      cursor: pointer;
+      color: #00bcd4;
+      font-weight: bold;
+      border: none;
+      background: none;
+      font-size: 1rem;
+    }
     footer {
       margin-top: auto;
       font-size: 0.9rem;
@@ -65,6 +93,8 @@
   <header>
     <h1>OpenOTP</h1>
     <p>Open Source 2FA Authenticator for Everyone</p>
+    <a href="#download">Download</a>
+    <a href="#donate">Donate</a>
   </header>
 
   <main>
@@ -82,11 +112,31 @@
       <li>Secure local storage</li>
     </ul>
 
-    <h2>📦 Download</h2>
+    <h2 id="download">📦 Download</h2>
     <p>
       Latest builds can be found in the <a href="https://github.com/Slipstreamm/OpenOTP/releases" target="_blank">Releases</a> section on GitHub.
     </p>
     <a class="button" href="https://github.com/Slipstreamm/OpenOTP/releases" target="_blank">Get OpenOTP</a>
+
+    <h2 id="donate">💖 Donate</h2>
+    <p>
+      If you find OpenOTP useful and want to support its development, consider making a donation.
+    </p>
+    <p>
+      Only cryptocurrencies are accepeted as of now.
+    </p>
+    <div class="donate-section">
+      <li><strong>Donate Page:</strong> <a href="https://slipstreamm.github.io/donate" target="_blank">Click here</a></li>
+      <button class="donate-button" onclick="toggleDonate()">Show Crypto Addresses ▼</button>
+      <div class="donate-dropdown" id="donateDropdown">
+        <ul>
+          <li><strong>Bitcoin (BTC):</strong> <code>bc1q2hdtqu4pkp8r0dy528vq24lf6ppzmqfm0fzsfc</code></li>
+          <li><strong>Litecoin (LTC):</strong> <code>ltc1qcjdruwr557v0lq690gnymk92ch6g2jney0uddl</code></li>
+          <li><strong>Solana (SOL):</strong> <code>DMWUs9DM1RtyxcebvY4fcWEEZw5tHbBCuRme5BnxcuPN / fs0ciety.sol</code></li>
+          <li><strong>Monero (XMR):</strong> <code>885FnNNukkB8xGAcRZoK6QhPCcRebnyQETCXPB17mua96aAj4mrWSYUTDd5fsvjNEZ839dQerLUrYGRTBaTZvgLuPfujzgA</code></li>
+        </ul>
+      </div>
+    </div>
 
     <h2>🛠️ Contribute</h2>
     <p>
@@ -98,10 +148,26 @@
     <p>
       OpenOTP is licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank">GNU GPLv3</a>. You're free to use, modify, and distribute it under the same license.
     </p>
+    
+    <h2>💬 Contact</h2>
+    <p>
+      <a href="mailto:info@openotp.lol" target="_blank">info@openotp.lol</a>, <a href="mailto:support@openotp.lol" target="_blank">support@openotp.lol</a>, <a href="mailto:security@openotp.lol" target="_blank">security@openotp.lol</a>
+    </p>
+    </p> If the above emails fail: <a href="mailto:openotp@protonmail.com" target="_blank">openotp@protonmail.com</a>
   </main>
 
   <footer>
     &copy; 2025 <a href="https://github.com/Slipstreamm" target="_blank">Slipstreamm</a> • OpenOTP is GPLv3 Licensed
   </footer>
+
+  <script>
+    function toggleDonate() {
+      const dropdown = document.getElementById('donateDropdown');
+      const button = document.querySelector('.donate-button');
+      const isVisible = dropdown.style.display === 'block';
+      dropdown.style.display = isVisible ? 'none' : 'block';
+      button.textContent = isVisible ? 'Show Crypto Addresses ▼' : 'Hide Crypto Addresses ▲';
+    }
+  </script>
 </body>
 </html>
