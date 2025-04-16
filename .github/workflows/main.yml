@@ -81,10 +81,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install GTK+ 3.0 dependencies
+      - name: Install potential apt dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev
+          sudo apt install -y clang cmake curl git ninja-build pkg-config unzip xz-utils zip libgtk-3-dev liblzma-dev libsecret
 
       - name: Fix flutter SDK folder permission
         run: git config --global --add safe.directory /tmp/flutter/--
