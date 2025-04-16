@@ -24,10 +24,8 @@ jobs:
     name: Build for Windows (Inno Setup)
     runs-on: windows-latest
     needs: get-latest-tag
-
     outputs:
       windows_artifact: ${{ steps.upload_windows.outputs.artifact_path }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -44,24 +42,24 @@ jobs:
         run: flutter pub get
 
       - name: Build Windows app
-        run: flutter build windows
+        run: flutter build windows --release
 
       - name: Install Inno Setup
         run: choco install innosetup -y
 
       - name: Create Inno Setup script
         run: |
-          echo ; Inno Setup script to package the Flutter app > package.iss
-          echo [Setup] >> package.iss
-          echo AppName=OpenOTP >> package.iss
-          echo AppVersion=${{ needs.get-latest-tag.outputs.tag_name }} >> package.iss
-          echo DefaultDirName={pf}\OpenOTP >> package.iss
-          echo DefaultGroupName=OpenOTP >> package.iss
-          echo OutputBaseFilename=OpenOTPInstaller >> package.iss
-          echo [Files] >> package.iss
-          echo Source: "build\windows\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs >> package.iss
-          echo [Icons] >> package.iss
-          echo Name: "{group}\OpenOTP"; Filename: "{app}\OpenOTP.exe" >> package.iss
+          echo '; Inno Setup script to package the Flutter app' > package.iss
+          echo '[Setup]' >> package.iss
+          echo 'AppName=OpenOTP' >> package.iss
+          echo "AppVersion=${{ needs.get-latest-tag.outputs.tag_name }}" >> package.iss
+          echo 'DefaultDirName={pf}\OpenOTP' >> package.iss
+          echo 'DefaultGroupName=OpenOTP' >> package.iss
+          echo 'OutputBaseFilename=OpenOTPInstaller' >> package.iss
+          echo '[Files]' >> package.iss
+          echo 'Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs' >> package.iss
+          echo '[Icons]' >> package.iss
+          echo 'Name: "{group}\OpenOTP"; Filename: "{app}\OpenOTP.exe"' >> package.iss
 
       - name: Create Installer
         run: iscc package.iss
@@ -71,19 +69,22 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: OpenOTP-Windows-Installer
-          path: OpenOTPInstaller.exe
+          path: Output/OpenOTPInstaller.exe
 
   linux-build:
     name: Build for Linux (AppImage)
     runs-on: ubuntu-latest
     needs: get-latest-tag
-
     outputs:
       linux_artifact: ${{ steps.upload_linux.outputs.artifact_path }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install apt dependencies
+        run: |
+          sudo apt-get update
+          sudo apt install -y clang cmake curl git ninja-build pkg-config unzip xz-utils zip libgtk-3-dev liblzma-dev libsecret-1-dev
 
       - name: Fix flutter SDK folder permission
         run: git config --global --add safe.directory /tmp/flutter/--
@@ -97,18 +98,19 @@ jobs:
         run: flutter pub get
 
       - name: Build Linux app
-        run: flutter build linux
+        run: flutter build linux --release
 
       - name: Install AppImageTool
         run: |
-          sudo apt-get update
-          sudo apt-get install -y appimagetool
+          wget https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
 
       - name: Package as AppImage
         run: |
           mkdir -p AppDir/usr/bin
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin
-          appimagetool AppDir OpenOTP.AppImage
+          chmod +x AppDir/usr/bin/OpenOTP
+          ./appimagetool-x86_64.AppImage AppDir OpenOTP.AppImage
 
       - name: Upload AppImage
         id: upload_linux
@@ -121,10 +123,8 @@ jobs:
     name: Build for Android (APK)
     runs-on: ubuntu-latest
     needs: get-latest-tag
-
     outputs:
       android_artifact: ${{ steps.upload_android.outputs.artifact_path }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -141,7 +141,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Android APK
-        run: flutter build apk
+        run: flutter build apk --release
 
       - name: Upload APK
         id: upload_android
@@ -150,16 +150,14 @@ jobs:
           name: OpenOTP-Android-APK
           path: build/app/outputs/flutter-apk/app-release.apk
 
-  ios-macos-build:
-    name: Trigger iOS and macOS Build on Codemagic
+  ios-build:
+    name: Trigger iOS Build on Codemagic
     runs-on: ubuntu-latest
     needs: get-latest-tag
-
     outputs:
       build_id: ${{ steps.trigger_build.outputs.build_id }}
-
     steps:
-      - name: Trigger Codemagic Build
+      - name: Trigger Codemagic iOS Build
         id: trigger_build
         run: |
           RESPONSE=$(curl -X POST \
@@ -179,76 +177,63 @@ jobs:
           BUILD_ID=$(echo "$RESPONSE" | jq -r '.buildId')
           echo "build_id=${BUILD_ID}" >> "$GITHUB_OUTPUT"
 
-  wait-for-codemagic:
-    name: Wait for Codemagic Build Completion
+  wait-fixed:
+    name: Wait Fixed Time for Codemagic Build
     runs-on: ubuntu-latest
-    needs: ios-macos-build
-
-    outputs:
-      build_status: ${{ steps.check_status.outputs.status }}
-
+    needs: ios-build
     steps:
-      - name: Wait for Build to Complete
-        id: check_status
-        run: |
-          BUILD_ID=${{ needs.ios-macos-build.outputs.build_id }}
-          STATUS="in-progress"
-          while [ "$STATUS" == "in-progress" ] || [ "$STATUS" == "queued" ]; do
-            echo "Checking build status..."
-            RESPONSE=$(curl -X GET \
-              -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
-              "https://api.codemagic.io/builds/$BUILD_ID")
-
-            echo "$RESPONSE"
-            STATUS=$(echo "$RESPONSE" | jq -r '.status')
-            echo "Current Status: $STATUS"
-
-            if [ "$STATUS" == "failed" ]; then
-              echo "Codemagic build failed."
-              exit 1
-            fi
-
-            if [ "$STATUS" == "success" ]; then
-              echo "Codemagic build completed successfully."
-              break
-            fi
-
-            echo "Waiting for 30 seconds before checking again..."
-            sleep 30
-          done
-          echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
+      - name: Wait for 5 minutes
+        run: sleep 300
 
   fetch-codemagic-artifacts:
-    name: Fetch Codemagic Artifacts
+    name: Fetch iOS IPA from Codemagic
     runs-on: ubuntu-latest
-    needs: wait-for-codemagic
-
+    needs: wait-fixed
     outputs:
       codemagic_artifact: ${{ steps.upload_codemagic.outputs.artifact_path }}
-
     steps:
-      - name: Download Codemagic Artifacts
+      - name: Get IPA Artifact URL
+        id: get_artifacts
         run: |
-          BUILD_ID=${{ needs.ios-macos-build.outputs.build_id }}
-          curl -X GET \
+          BUILD_ID=${{ needs.ios-build.outputs.build_id }}
+    
+          if [ -z "$BUILD_ID" ]; then
+            echo "Error: BUILD_ID is empty. Check if the Codemagic build was triggered correctly."
+            exit 1
+          fi
+    
+          echo "Fetching artifacts for Codemagic build ID: $BUILD_ID"
+    
+          RESPONSE=$(curl -s -X GET \
             -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
-            "https://api.codemagic.io/artifacts?buildId=$BUILD_ID" -o codemagic-artifacts.zip
+            "https://api.codemagic.io/builds/$BUILD_ID/artifacts")
+    
+          echo "Codemagic Response: $RESPONSE" > artifacts.json
+    
+          IPA_URL=$(jq -r '.artifacts[] | select(.name | endswith(".ipa")) | .url' artifacts.json)
+    
+          if [ -z "$IPA_URL" ] || [ "$IPA_URL" = "null" ]; then
+            echo "Error: No IPA URL found in Codemagic response."
+            cat artifacts.json
+            exit 1
+          fi
+    
+          echo "IPA_URL=$IPA_URL" >> $GITHUB_ENV
+      - name: Download IPA
+        run: |
+          curl -L -o OpenOTP.ipa "$IPA_URL"
 
-      - name: Extract Codemagic Artifacts
-        run: unzip codemagic-artifacts.zip -d codemagic-artifacts
-
-      - name: Upload Codemagic Artifacts
+      - name: Upload IPA
         id: upload_codemagic
         uses: actions/upload-artifact@v4
         with:
-          name: Codemagic-Artifacts
-          path: codemagic-artifacts/
-  
+          name: OpenOTP-iOS-IPA
+          path: OpenOTP.ipa
+
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: [get-latest-tag, windows-build, linux-build, android-build, fetch-codemagic-artifacts]
-
     steps:
       - name: Create GitHub Release and Upload Assets
         uses: ncipollo/release-action@v1
@@ -260,7 +245,7 @@ jobs:
             - Windows Installer
             - Linux AppImage
             - Android APK
-            - iOS/macOS Builds
+            - iOS IPA
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}

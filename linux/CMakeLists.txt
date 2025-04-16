@@ -8,6 +8,7 @@ set(BINARY_NAME "openotp")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
 set(APPLICATION_ID "lol.openotp.OpenOTP")
+add_definitions(-DAPPLICATION_ID=\"lol.openotp.OpenOTP\")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
