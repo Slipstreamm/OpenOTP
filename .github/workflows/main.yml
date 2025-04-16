@@ -122,8 +122,7 @@ jobs:
             'Categories=Utility;' > AppDir/openotp.desktop
 
           # Copy icon (must match Icon=openotp and be .png)
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          cp assets/icons/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/openotp.png
+          cp assets/icons/icon.png AppDir/openotp.png
 
           ./appimagetool-x86_64.AppImage AppDir OpenOTP.AppImage
 
