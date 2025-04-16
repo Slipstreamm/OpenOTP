@@ -57,7 +57,7 @@ jobs:
           echo 'DefaultGroupName=OpenOTP' >> package.iss
           echo 'OutputBaseFilename=OpenOTPInstaller' >> package.iss
           echo '[Files]' >> package.iss
-          echo 'Source: "build\windows\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs' >> package.iss
+          echo 'Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs' >> package.iss
           echo '[Icons]' >> package.iss
           echo 'Name: "{group}\OpenOTP"; Filename: "{app}\OpenOTP.exe"' >> package.iss
 
