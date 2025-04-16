@@ -109,7 +109,7 @@ jobs:
         run: |
           mkdir -p AppDir/usr/bin
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin
-          chmod +x AppDir/usr/bin/OpenOTP
+          chmod +x AppDir/usr/bin/openotp
           ./appimagetool-x86_64.AppImage AppDir OpenOTP.AppImage
 
       - name: Upload AppImage
@@ -188,7 +188,7 @@ jobs:
   fetch-codemagic-artifacts:
     name: Fetch iOS IPA from Codemagic
     runs-on: ubuntu-latest
-    needs: wait-fixed
+    needs: [ios-build, wait-fixed]
     outputs:
       codemagic_artifact: ${{ steps.upload_codemagic.outputs.artifact_path }}
     steps:
