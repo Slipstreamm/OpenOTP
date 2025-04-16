@@ -191,17 +191,33 @@ jobs:
     outputs:
       codemagic_artifact: ${{ steps.upload_codemagic.outputs.artifact_path }}
     steps:
-      - name: Get IPA Artifact URL
-        id: get_artifacts
-        run: |
-          BUILD_ID=${{ needs.ios-build.outputs.build_id }}
-          RESPONSE=$(curl -X GET \
-            -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
-            "https://api.codemagic.io/builds/$BUILD_ID/artifacts")
-          echo "$RESPONSE" > artifacts.json
-          IPA_URL=$(jq -r '.artifacts[] | select(.name | endswith(".ipa")) | .url' artifacts.json)
-          echo "IPA_URL=$IPA_URL" >> $GITHUB_ENV
-
+    - name: Get IPA Artifact URL
+      id: get_artifacts
+      run: |
+        BUILD_ID=${{ needs.ios-build.outputs.build_id }}
+  
+        if [ -z "$BUILD_ID" ]; then
+          echo "Error: BUILD_ID is empty. Check if the Codemagic build was triggered correctly."
+          exit 1
+        fi
+  
+        echo "Fetching artifacts for Codemagic build ID: $BUILD_ID"
+  
+        RESPONSE=$(curl -s -X GET \
+          -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
+          "https://api.codemagic.io/builds/$BUILD_ID/artifacts")
+  
+        echo "Codemagic Response: $RESPONSE" > artifacts.json
+  
+        IPA_URL=$(jq -r '.artifacts[] | select(.name | endswith(".ipa")) | .url' artifacts.json)
+  
+        if [ -z "$IPA_URL" ] || [ "$IPA_URL" = "null" ]; then
+          echo "Error: No IPA URL found in Codemagic response."
+          cat artifacts.json
+          exit 1
+        fi
+  
+      echo "IPA_URL=$IPA_URL" >> $GITHUB_ENV
       - name: Download IPA
         run: |
           curl -L -o OpenOTP.ipa "$IPA_URL"
