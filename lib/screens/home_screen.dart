@@ -49,8 +49,34 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _logger.i('Initializing HomeScreen');
-    _loadOtpEntries();
+    _checkAndCleanupInvalidEntries();
     _startTimer();
+  }
+
+  // Check for and remove any invalid OTP entries
+  Future<void> _checkAndCleanupInvalidEntries() async {
+    _logger.d('Checking for invalid OTP entries');
+    try {
+      // Run the cleanup
+      final removedCount = await _storageService.cleanupInvalidEntries();
+
+      // Show a notification if any entries were removed
+      if (removedCount > 0 && mounted) {
+        // Delay the snackbar to ensure the UI is built
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Removed $removedCount invalid OTP ${removedCount == 1 ? 'entry' : 'entries'}')));
+          }
+        });
+      }
+
+      // Load the entries after cleanup
+      await _loadOtpEntries();
+    } catch (e, stackTrace) {
+      _logger.e('Error checking for invalid OTP entries', e, stackTrace);
+      // Still try to load entries even if cleanup failed
+      await _loadOtpEntries();
+    }
   }
 
   // Select the first OTP entry when entries are loaded
@@ -102,7 +128,13 @@ class _HomeScreenState extends State<HomeScreen> {
     for (final entry in _otpEntries) {
       final code = _otpService.generateTotp(entry);
       _totpCache[entry.id] = code;
-      _logger.d('Generated TOTP code for ${entry.name}: $code');
+
+      // Log appropriate message based on code generation result
+      if (code == 'ERROR') {
+        _logger.w('Failed to generate TOTP code for ${entry.name} - invalid secret key');
+      } else {
+        _logger.d('Generated TOTP code for ${entry.name}: $code');
+      }
     }
   }
 
@@ -438,6 +470,28 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // Navigate to edit screen for an OTP entry
+  Future<void> _editOtpEntry(OtpEntry entry) async {
+    _logger.d('Navigating to edit OTP entry: ${entry.name}');
+    try {
+      // Create a screen to edit the entry
+      // For now, we'll just navigate to the add screen and let the user re-enter the data
+      // In a future enhancement, we could create a proper edit screen that pre-fills the data
+      if (!mounted) return;
+
+      final result = await Navigator.pushNamed<bool>(context, RouteGenerator.addOtp, arguments: {'showQrOptions': true});
+
+      if (result == true) {
+        _logger.i('OTP entry edited, reloading entries');
+        await _loadOtpEntries();
+      } else {
+        _logger.d('Edit OTP entry cancelled or failed');
+      }
+    } catch (e, stackTrace) {
+      _logger.e('Error navigating to edit OTP entry', e, stackTrace);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Get the current view type from settings
@@ -460,7 +514,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body:
           _otpEntries.isEmpty
-              ? const Center(child: Text('No OTP entries yet. Add one to get started!'))
+              ? const Center(
+                child: Text(
+                  'No OTP entries yet. Add one to get started!\nYou should check out the settings page before adding entries.',
+                  textAlign: TextAlign.center,
+                ),
+              )
               : _isEditMode
               // ReorderableListView for edit mode
               ? ReorderableListView.builder(
@@ -583,8 +642,29 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              Text(code, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 0), textAlign: TextAlign.left),
-                              IconButton(icon: const Icon(Icons.copy), onPressed: () => _copyCodeToClipboard(code), tooltip: 'Copy code'),
+                              code == 'ERROR'
+                                  ? Row(
+                                    children: [
+                                      const Icon(Icons.error, color: Colors.red),
+                                      const SizedBox(width: 8),
+                                      const Text('Invalid Key', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit, color: Colors.red),
+                                        onPressed: () => _editOtpEntry(entry),
+                                        tooltip: 'Edit entry to fix key',
+                                      ),
+                                    ],
+                                  )
+                                  : Row(
+                                    children: [
+                                      Text(
+                                        code,
+                                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 0),
+                                        textAlign: TextAlign.left,
+                                      ),
+                                      IconButton(icon: const Icon(Icons.copy), onPressed: () => _copyCodeToClipboard(code), tooltip: 'Copy code'),
+                                    ],
+                                  ),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -648,7 +728,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.all(4),
-      child: iconWidget ?? const SizedBox(), // Use empty SizedBox as fallback if null
+      child: iconWidget, // IconService now always returns a widget
     );
 
     // Store in cache for future use
@@ -707,17 +787,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = screenWidth > 900 ? 4 : (screenWidth > 600 ? 3 : 2);
 
-    // Adjust aspect ratio based on screen width to prevent clipping
-    // Use a smaller aspect ratio (taller cards) for narrower screens
-    final childAspectRatio = screenWidth > 600 ? 0.75 : 0.65;
+    // Use a responsive aspect ratio based on screen size
+    // Taller cards (lower aspect ratio) for smaller screens to prevent clipping
+    final childAspectRatio = screenWidth > 600 ? 0.95 : 0.8;
 
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount, // Responsive number of items per row
-        childAspectRatio: childAspectRatio, // Taller cards to prevent copy button clipping
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+        childAspectRatio: childAspectRatio, // Responsive aspect ratio
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
       ),
       itemCount: _otpEntries.length,
       itemBuilder: (context, index) {
@@ -736,109 +816,147 @@ class _HomeScreenState extends State<HomeScreen> {
               _showOtpDetailsDialog(entry, code);
             },
             child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Stack(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Main content
-                  Center(
+                  // Top section with icon and names
+                  Expanded(
+                    flex: 3,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Provider icon
                         _buildProviderIcon(entry),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                         // Provider name
-                        Text(
-                          entry.issuer.isNotEmpty ? entry.issuer : entry.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
+                        Flexible(
+                          child: Text(
+                            entry.issuer.isNotEmpty ? entry.issuer : entry.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                         ),
                         // Account name if issuer is present
                         if (entry.issuer.isNotEmpty)
+                          Flexible(
+                            child: Text(
+                              entry.name,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color:
+                                    Theme.of(context).brightness == Brightness.dark
+                                        ? const Color(0xFFB0B0B0) // Dark mode Text Secondary
+                                        : const Color(0xFF4F4F4F), // Light mode Text Secondary
+                              ),
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // Middle section with OTP code
+                  Expanded(
+                    flex: 2,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Token text
                           Text(
-                            entry.name,
+                            'TOTP:',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               color:
                                   Theme.of(context).brightness == Brightness.dark
                                       ? const Color(0xFFB0B0B0) // Dark mode Text Secondary
                                       : const Color(0xFF4F4F4F), // Light mode Text Secondary
                             ),
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
                           ),
-                        const SizedBox(height: 12),
-                        // Token text
-                        Text(
-                          'TOTP is:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? const Color(0xFFB0B0B0) // Dark mode Text Secondary
-                                    : const Color(0xFF4F4F4F), // Light mode Text Secondary
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-                        // OTP code
-                        Text(code, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 0), textAlign: TextAlign.center),
-                        const SizedBox(height: 8),
+                          const SizedBox(height: 2),
+                          // OTP code
+                          code == 'ERROR'
+                              ? Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.error, color: Colors.red, size: 14),
+                                  const SizedBox(width: 2),
+                                  const Flexible(
+                                    child: Text(
+                                      'Invalid Key',
+                                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              )
+                              : FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(code, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0)),
+                              ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Bottom section with timer and copy button
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
                         // Expiration timer
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             SizedBox(
-                              width: 16,
-                              height: 16,
+                              width: 10,
+                              height: 10,
                               child: CircularProgressIndicator(
                                 value: _secondsRemaining / entry.period,
-                                strokeWidth: 2,
+                                strokeWidth: 1.5,
                                 color: _secondsRemaining < 5 ? Colors.red : null,
                               ),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Expires in $_secondsRemaining s',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color:
-                                    _secondsRemaining < 5
-                                        ? Colors.red
-                                        : Theme.of(context).brightness == Brightness.dark
-                                        ? const Color(0xFFB0B0B0) // Dark mode Text Secondary
-                                        : const Color(0xFF4F4F4F), // Light mode Text Secondary
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                'Expires: $_secondsRemaining s',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color:
+                                      _secondsRemaining < 5
+                                          ? Colors.red
+                                          : Theme.of(context).brightness == Brightness.dark
+                                          ? const Color(0xFFB0B0B0) // Dark mode Text Secondary
+                                          : const Color(0xFF4F4F4F), // Light mode Text Secondary
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
-                        // Empty space for the copy button
-                        const SizedBox(height: 24),
-                      ],
-                    ),
-                  ),
-
-                  // Copy button positioned at the bottom center
-                  Positioned(
-                    bottom: 8,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: SizedBox(
-                        height: 36,
-                        width: 36,
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          iconSize: 20,
-                          icon: const Icon(Icons.copy),
-                          onPressed: () => _copyCodeToClipboard(code),
-                          tooltip: 'Copy code',
+                        const SizedBox(height: 4),
+                        // Copy button
+                        SizedBox(
+                          height: 28,
+                          width: 28,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            iconSize: 16,
+                            icon: const Icon(Icons.copy),
+                            onPressed: () => _copyCodeToClipboard(code),
+                            tooltip: 'Copy code',
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ],
@@ -901,7 +1019,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(code, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 0), textAlign: TextAlign.center),
+                code == 'ERROR'
+                    ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error, color: Colors.red, size: 24),
+                        const SizedBox(width: 8),
+                        const Text('Invalid Secret Key', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 20)),
+                      ],
+                    )
+                    : Text(code, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 0), textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 Text(
                   'Refreshes in $_secondsRemaining seconds',
@@ -921,10 +1048,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     TextButton.icon(
                       icon: const Icon(Icons.copy),
                       label: const Text('Copy'),
-                      onPressed: () {
-                        _copyCodeToClipboard(code);
-                        Navigator.pop(context);
-                      },
+                      onPressed:
+                          code == 'ERROR'
+                              ? null // Disable button for invalid entries
+                              : () {
+                                _copyCodeToClipboard(code);
+                                Navigator.pop(context);
+                              },
                     ),
                     if (!_isEditMode)
                       TextButton.icon(
@@ -1014,7 +1144,21 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 8),
               // OTP code
-              Text(selectedCode, style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: 0), textAlign: TextAlign.center),
+              selectedCode == 'ERROR'
+                  ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error, color: Colors.red, size: 24),
+                      const SizedBox(width: 8),
+                      const Text('Invalid Secret Key', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 24)),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.red),
+                        onPressed: () => _editOtpEntry(selectedEntry),
+                        tooltip: 'Edit entry to fix key',
+                      ),
+                    ],
+                  )
+                  : Text(selectedCode, style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: 0), textAlign: TextAlign.center),
               const SizedBox(height: 8),
               // Timer
               Row(
@@ -1037,7 +1181,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 16),
               // Copy button
-              ElevatedButton.icon(icon: const Icon(Icons.copy), label: const Text('Copy'), onPressed: () => _copyCodeToClipboard(selectedCode)),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.copy),
+                label: const Text('Copy'),
+                onPressed: selectedCode == 'ERROR' ? null : () => _copyCodeToClipboard(selectedCode),
+              ),
             ],
           ),
         ),
@@ -1046,13 +1194,14 @@ class _HomeScreenState extends State<HomeScreen> {
         // Bottom section with grid of TOTPs
         Expanded(
           child: GridView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               // Responsive grid based on screen width
               crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 3,
-              childAspectRatio: 0.9, // Slightly taller to accommodate account name
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
+              // Use a responsive aspect ratio based on screen size
+              childAspectRatio: MediaQuery.of(context).size.width > 600 ? 0.95 : 0.8,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
             ),
             itemCount: _otpEntries.length,
             itemBuilder: (context, index) {
@@ -1071,36 +1220,49 @@ class _HomeScreenState extends State<HomeScreen> {
                     });
                   },
                   child: Padding(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         // Provider icon
-                        _buildProviderIcon(entry),
-                        const SizedBox(height: 8),
-                        // Provider name
-                        Text(
-                          entry.issuer.isNotEmpty ? entry.issuer : entry.name,
-                          style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 12),
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                        // Account name if issuer is present
-                        if (entry.issuer.isNotEmpty)
-                          Text(
-                            entry.name,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color:
-                                  Theme.of(context).brightness == Brightness.dark
-                                      ? const Color(0xFFB0B0B0) // Dark mode Text Secondary
-                                      : const Color(0xFF4F4F4F), // Light mode Text Secondary
-                            ),
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
+                        Expanded(flex: 3, child: Center(child: _buildProviderIcon(entry))),
+                        // Provider name and account
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Provider name
+                              Flexible(
+                                child: Text(
+                                  entry.issuer.isNotEmpty ? entry.issuer : entry.name,
+                                  style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 11),
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                              // Account name if issuer is present
+                              if (entry.issuer.isNotEmpty)
+                                Flexible(
+                                  child: Text(
+                                    entry.name,
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color:
+                                          Theme.of(context).brightness == Brightness.dark
+                                              ? const Color(0xFFB0B0B0) // Dark mode Text Secondary
+                                              : const Color(0xFF4F4F4F), // Light mode Text Secondary
+                                    ),
+                                    textAlign: TextAlign.center,
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                            ],
                           ),
+                        ),
                       ],
                     ),
                   ),

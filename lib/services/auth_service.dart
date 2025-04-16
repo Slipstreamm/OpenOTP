@@ -438,8 +438,8 @@ class AuthService {
       // Load current auth data
       final authData = await _loadAuthData();
 
-      // Set last auth time to 0 to force authentication
-      final updatedAuthData = authData.copyWith(lastAuthTime: 0);
+      // Set last auth time to 0 to force authentication and set manual lock flag
+      final updatedAuthData = authData.copyWith(lastAuthTime: 0, isManuallyLocked: true);
 
       // Save updated auth data
       final success = await _saveAuthData(updatedAuthData);
@@ -461,8 +461,11 @@ class AuthService {
       // Load current auth data
       final authData = await _loadAuthData();
 
-      // Update last auth time
-      final updatedAuthData = authData.copyWith(lastAuthTime: DateTime.now().millisecondsSinceEpoch);
+      // Update last auth time and reset manual lock flag
+      final updatedAuthData = authData.copyWith(
+        lastAuthTime: DateTime.now().millisecondsSinceEpoch,
+        isManuallyLocked: false, // Reset manual lock flag after authentication
+      );
 
       // Save updated auth data
       final success = await _saveAuthData(updatedAuthData);
@@ -554,10 +557,16 @@ class AuthService {
       // Load auth data
       final authData = await _loadAuthData();
       final hasPassword = authData.hasPassword;
+      final isManuallyLocked = authData.isManuallyLocked;
 
       // Check if biometric authentication is available and enabled
       final biometricAvailable = await isBiometricAvailable();
       final biometricsEnabled = authData.useBiometrics;
+
+      // Log if we're skipping biometrics due to manual lock
+      if (isManuallyLocked) {
+        _logger.i('Biometric authentication disabled because app was manually locked');
+      }
 
       if ((!biometricAvailable || !biometricsEnabled) && !hasPassword) {
         _logger.w('No authentication methods available or enabled');
@@ -583,7 +592,7 @@ class AuthService {
           return PasswordEntryWidget(
             verifyPassword: verifyPassword,
             authenticateWithBiometrics: authenticateWithBiometrics,
-            biometricAvailable: biometricAvailable && biometricsEnabled,
+            biometricAvailable: biometricAvailable && biometricsEnabled && !isManuallyLocked,
             canCancel: canCancel,
             onAuthenticated: () {
               if (!completer.isCompleted) {
@@ -623,6 +632,7 @@ class AuthService {
     // Load auth data
     final authData = await _loadAuthData();
     final hasPassword = authData.hasPassword;
+    final isManuallyLocked = authData.isManuallyLocked;
 
     // If no password is set, no authentication is needed
     if (!hasPassword) {
@@ -633,6 +643,11 @@ class AuthService {
     // Check if biometric authentication is available and enabled
     final biometricAvailable = await isBiometricAvailable();
     final biometricsEnabled = authData.useBiometrics;
+
+    // Log if we're skipping biometrics due to manual lock
+    if (isManuallyLocked) {
+      _logger.i('Biometric authentication disabled because app was manually locked');
+    }
 
     // Create a completer to handle the result
     final completer = Completer<bool>();
@@ -651,7 +666,7 @@ class AuthService {
         return PasswordEntryWidget(
           verifyPassword: verifyPassword,
           authenticateWithBiometrics: authenticateWithBiometrics,
-          biometricAvailable: biometricAvailable && biometricsEnabled,
+          biometricAvailable: biometricAvailable && biometricsEnabled && !isManuallyLocked,
           canCancel: true,
           onAuthenticated: () {
             if (!completer.isCompleted) {

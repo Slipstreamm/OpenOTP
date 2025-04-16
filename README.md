@@ -7,11 +7,10 @@ A feature-rich, secure OTP (One-Time Password) generator app built with Flutter.
 ### Core Functionality
 
 - Securely store OTP keys using Flutter Secure Storage
-- Generate TOTP codes with a countdown timer
-- Manual code generation with a dice button
+- Optional AES encryption of OTP keys with a password
 - Customize OTP settings (digits, period, algorithm)
 - Multiple view options:
-  - Grid view 
+  - Grid view
   - List view
   - Focus view (Authy-style)
 - Edit mode for rearranging and deleting entries

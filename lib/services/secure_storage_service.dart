@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async' show Future;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/otp_entry.dart';
+import '../utils/base32_utils.dart';
 import 'auth_service.dart' deferred as auth;
 import 'crypto_service.dart';
 import 'logger_service.dart';
@@ -20,6 +21,7 @@ class SecureStorageService {
     try {
       final entriesJson = entries.map((entry) => entry.toJson()).toList();
       final entriesString = jsonEncode(entriesJson);
+      _logger.d('Converted OTP entries to JSON string');
 
       // Check if password encryption is enabled
       final settings = await _settingsService.loadSettings();
@@ -29,16 +31,26 @@ class SecureStorageService {
       final authService = auth.AuthService();
       final hasPassword = await authService.isPasswordSet();
 
+      if (hasPassword) {
+        _logger.i('Password is set');
+      }
+
       if (settings.usePasswordEncryption && hasPassword) {
         _logger.d('Using password encryption for OTP entries');
         // Get the current password
         final password = await authService.getPasswordForEncryption();
         if (password != null) {
-          // Encrypt the entries string with the password
-          final encryptedData = await _cryptoService.encrypt(entriesString, password);
-          await _secureStorage.write(key: _otpEntriesKey, value: encryptedData);
-          _logger.i('Successfully saved ${entries.length} OTP entries with password encryption');
-          return;
+          try {
+            // Encrypt the entries string with the password
+            final encryptedData = await _cryptoService.encrypt(entriesString, password);
+            _logger.d('Data encrypted successfully, saving to secure storage');
+            await _secureStorage.write(key: _otpEntriesKey, value: encryptedData);
+            _logger.i('Successfully saved ${entries.length} OTP entries with password encryption');
+            return;
+          } catch (encryptError, encryptStackTrace) {
+            _logger.e('Error encrypting OTP entries', encryptError, encryptStackTrace);
+            _logger.w('Falling back to standard storage due to encryption error');
+          }
         } else {
           _logger.w('Failed to get password for encryption, falling back to standard storage');
         }
@@ -46,7 +58,7 @@ class SecureStorageService {
 
       // Standard storage without password encryption
       await _secureStorage.write(key: _otpEntriesKey, value: entriesString);
-      _logger.i('Successfully saved ${entries.length} OTP entries');
+      _logger.i('Successfully saved ${entries.length} OTP entries without encryption');
     } catch (e, stackTrace) {
       _logger.e('Error saving OTP entries', e, stackTrace);
       rethrow;
@@ -73,40 +85,73 @@ class SecureStorageService {
 
       String decodedString = entriesString;
 
-      // Try to parse as JSON to check if it's encrypted
+      // Check if the data is encrypted
+      bool isEncrypted = false;
       try {
-        // If this succeeds without error, it's likely not encrypted with password
-        jsonDecode(entriesString);
-      } catch (e) {
-        // If parsing fails, it might be encrypted with password
-        if (settings.usePasswordEncryption && hasPassword) {
-          _logger.d('Attempting to decrypt OTP entries with password');
-          try {
-            // Get the current password
-            final password = await authService.getPasswordForEncryption();
-            if (password != null) {
-              // Decrypt the entries string with the password
-              decodedString = await _cryptoService.decrypt(entriesString, password);
-              _logger.i('Successfully decrypted OTP entries with password');
-            } else {
-              _logger.w('Failed to get password for decryption');
-              return [];
-            }
-          } catch (decryptError) {
-            _logger.e('Error decrypting OTP entries', decryptError);
-            return [];
-          }
-        } else {
-          // If not using password encryption but data is not valid JSON, something is wrong
-          _logger.e('OTP entries data is corrupted or in unknown format');
-          return [];
+        // Try to parse the data as JSON
+        final jsonData = jsonDecode(entriesString);
+
+        // If it parses as a Map with encryption-related fields, it's likely encrypted
+        if (jsonData is Map<String, dynamic> && jsonData.containsKey('version') && jsonData.containsKey('iv') && jsonData.containsKey('data')) {
+          _logger.d('Data appears to be encrypted (has encryption fields)');
+          isEncrypted = true;
         }
+      } catch (e) {
+        // If parsing fails, it might be encrypted or corrupted
+        _logger.d('Data is not valid JSON, might be encrypted or corrupted');
+        isEncrypted = true;
       }
 
-      final entriesJson = jsonDecode(decodedString) as List;
-      final entries = entriesJson.map((entryJson) => OtpEntry.fromJson(entryJson)).toList();
-      _logger.i('Retrieved ${entries.length} OTP entries');
-      return entries;
+      // Handle encrypted data if needed
+      if (isEncrypted && settings.usePasswordEncryption && hasPassword) {
+        _logger.d('Attempting to decrypt OTP entries with password');
+        try {
+          // Get the current password
+          final password = await authService.getPasswordForEncryption();
+          if (password != null) {
+            // Decrypt the entries string with the password
+            decodedString = await _cryptoService.decrypt(entriesString, password);
+            _logger.i('Successfully decrypted OTP entries with password');
+          } else {
+            _logger.w('Failed to get password for decryption');
+            return [];
+          }
+        } catch (decryptError) {
+          _logger.e('Error decrypting OTP entries', decryptError);
+          return [];
+        }
+      } else if (isEncrypted) {
+        // If it's encrypted but we can't decrypt it (no password or encryption disabled)
+        _logger.e('Data appears to be encrypted but cannot be decrypted (password not set or encryption disabled)');
+        return [];
+      }
+
+      // Parse the decoded string
+      _logger.d('Parsing decoded OTP entries data');
+      final decodedJson = jsonDecode(decodedString);
+
+      // Check if the decoded JSON is a List or a Map
+      if (decodedJson is List) {
+        // It's already a list of entries
+        final entries = decodedJson.map((entryJson) => OtpEntry.fromJson(entryJson)).toList();
+        _logger.i('Retrieved ${entries.length} OTP entries');
+        return entries;
+      } else if (decodedJson is Map<String, dynamic>) {
+        // It might be a wrapped object, check if it contains an 'otpEntries' field
+        if (decodedJson.containsKey('otpEntries') && decodedJson['otpEntries'] is List) {
+          final entriesJson = decodedJson['otpEntries'] as List;
+          final entries = entriesJson.map((entryJson) => OtpEntry.fromJson(entryJson)).toList();
+          _logger.i('Retrieved ${entries.length} OTP entries from wrapped object');
+          return entries;
+        } else {
+          // Log the structure to help diagnose the issue
+          _logger.w('Decoded JSON is a Map but does not contain expected structure: ${decodedJson.keys.join(', ')}');
+          return [];
+        }
+      } else {
+        _logger.e('Unexpected JSON structure: ${decodedJson.runtimeType}');
+        return [];
+      }
     } catch (e, stackTrace) {
       _logger.e('Error getting OTP entries', e, stackTrace);
       // Return empty list in case of error to prevent app crashes
@@ -252,6 +297,45 @@ class SecureStorageService {
     } catch (e, stackTrace) {
       _logger.e('Error decrypting data', e, stackTrace);
       return false;
+    }
+  }
+
+  /// Checks for and removes any OTP entries with invalid secret keys
+  /// Returns the number of entries that were removed
+  Future<int> cleanupInvalidEntries() async {
+    _logger.d('Checking for OTP entries with invalid secret keys');
+    try {
+      // Get all entries
+      final entries = await getOtpEntries();
+      if (entries.isEmpty) {
+        _logger.i('No OTP entries to check');
+        return 0;
+      }
+
+      final initialCount = entries.length;
+
+      // Filter out entries with invalid secret keys
+      entries.removeWhere((entry) {
+        final isValid = Base32Utils.isValidBase32(entry.secret) && Base32Utils.canDecode(entry.secret);
+        if (!isValid) {
+          _logger.w('Removing invalid OTP entry: ${entry.name} (ID: ${entry.id})');
+        }
+        return !isValid;
+      });
+
+      // If any entries were removed, save the updated list
+      final removedCount = initialCount - entries.length;
+      if (removedCount > 0) {
+        _logger.i('Removed $removedCount OTP entries with invalid secret keys');
+        await saveOtpEntries(entries);
+      } else {
+        _logger.i('No invalid OTP entries found');
+      }
+
+      return removedCount;
+    } catch (e, stackTrace) {
+      _logger.e('Error cleaning up invalid OTP entries', e, stackTrace);
+      return 0;
     }
   }
 }

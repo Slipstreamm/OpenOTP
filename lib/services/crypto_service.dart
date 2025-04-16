@@ -126,7 +126,15 @@ class CryptoService {
   Future<String> decrypt(String encryptedData, String pin) async {
     _logger.d('Decrypting data');
     try {
+      // Parse the encrypted data JSON
       final encryptedJson = jsonDecode(encryptedData);
+
+      // Validate required fields
+      if (!encryptedJson.containsKey('iv') || !encryptedJson.containsKey('data')) {
+        _logger.e('Invalid encrypted data format: missing required fields');
+        throw FormatException('Invalid encrypted data format: missing required fields');
+      }
+
       final iv = IV.fromBase64(encryptedJson['iv']);
       final encrypted = Encrypted.fromBase64(encryptedJson['data']);
 
@@ -146,9 +154,15 @@ class CryptoService {
       }
 
       final encrypter = Encrypter(AES(key, mode: AESMode.cbc));
-      return encrypter.decrypt(encrypted, iv: iv);
+      final decryptedData = encrypter.decrypt(encrypted, iv: iv);
+
+      // Log a sample of the decrypted data to help with debugging
+      final previewLength = decryptedData.length > 50 ? 50 : decryptedData.length;
+      _logger.d('Data decrypted successfully. Preview: ${decryptedData.substring(0, previewLength)}...');
+
+      return decryptedData;
     } catch (e, stackTrace) {
-      _logger.e('Error decrypting data', e, stackTrace);
+      _logger.e('Error decrypting data: ${e.toString()}', e, stackTrace);
       rethrow;
     }
   }

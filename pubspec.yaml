@@ -62,6 +62,7 @@ dependencies:
   uuid: ^4.3.3
   cryptography: ^2.7.0
   flutter_launcher_icons: ^0.14.2
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

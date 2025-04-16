@@ -125,7 +125,7 @@ class _LockScreenState extends State<LockScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.lock, size: 48),
+              Icon(Icons.lock, size: 48, color: Theme.of(context).primaryColor),
               const SizedBox(height: 16),
               Text('Authentication required', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),

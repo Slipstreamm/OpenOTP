@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'logger_service.dart';
 
@@ -9,7 +11,7 @@ class IconService {
   final Map<String, String?> _iconCache = {};
 
   // Find the icon path for a given issuer or name
-  String? findIconPath(String issuer, String name) {
+  Future<String?> findIconPath(String issuer, String name) async {
     _logger.d('Finding icon for issuer: $issuer, name: $name');
 
     // Check cache first
@@ -23,7 +25,7 @@ class IconService {
 
     // Try to find icon based on issuer first
     if (issuer.isNotEmpty) {
-      iconPath = _findIconForDomain(issuer);
+      iconPath = await _findIconForDomain(issuer);
       if (iconPath != null) {
         _iconCache[cacheKey] = iconPath;
         return iconPath;
@@ -31,7 +33,7 @@ class IconService {
     }
 
     // If no icon found for issuer, try with name
-    iconPath = _findIconForDomain(name);
+    iconPath = await _findIconForDomain(name);
 
     // Cache the result (even if null)
     _iconCache[cacheKey] = iconPath;
@@ -39,39 +41,213 @@ class IconService {
   }
 
   // Common domain TLDs to check when a user enters just the base name
-  final List<String> _commonTlds = ['com', 'org', 'net', 'io', 'app', 'dev'];
+  // Note: These are without the leading dot to prevent double-dot issues
+  final List<String> _commonTlds = [
+    'com',
+    'org',
+    'net',
+    'int',
+    'edu',
+    'gov',
+    'mil',
+    'co',
+    'io',
+    'ai',
+    'app',
+    'dev',
+    'tech',
+    'xyz',
+    'me',
+    'info',
+    'biz',
+    'online',
+    'site',
+    'store',
+    'blog',
+    'us',
+    'uk',
+    'ca',
+    'de',
+    'jp',
+    'fr',
+    'au',
+    'in',
+    'cn',
+    'br',
+    'ru',
+    'ch',
+    'nl',
+    'se',
+    'es',
+    'it',
+    'pl',
+    'ir',
+    'za',
+    'mx',
+    'kr',
+    'tr',
+    'ar',
+    'sg',
+    'id',
+    'hk',
+    'tv',
+    'fm',
+    'ly',
+    'to',
+    'ws',
+    'cc',
+    'mobi',
+    'name',
+    'pro',
+    'jobs',
+    'tel',
+    'asia',
+    'travel',
+    'museum',
+    'cat',
+    'coop',
+    'aero',
+    'int',
+    'bank',
+    'insurance',
+    'law',
+    'health',
+    'finance',
+    'credit',
+    'cloud',
+    'design',
+    'agency',
+    'studio',
+    'media',
+    'news',
+    'press',
+    'today',
+    'email',
+    'group',
+    'company',
+    'team',
+    'network',
+    'support',
+    'systems',
+    'solutions',
+    'capital',
+    'ventures',
+    'life',
+    'world',
+    'zone',
+    'space',
+    'tools',
+    'cool',
+    'ninja',
+    'expert',
+    'love',
+    'fun',
+    'party',
+    'vip',
+    'games',
+    'social',
+    'photo',
+    'pics',
+    'camera',
+    'gallery',
+    'art',
+    'music',
+    'film',
+    'theatre',
+    'dance',
+    'bar',
+    'cafe',
+    'restaurant',
+    'pizza',
+    'beer',
+    'fashion',
+    'style',
+    'beauty',
+    'makeup',
+    'build',
+    'construction',
+    'contractors',
+    'engineering',
+    'software',
+    'digital',
+    'computer',
+    'technology',
+    'academy',
+    'school',
+    'college',
+    'university',
+    'education',
+    'church',
+    'bible',
+    'faith',
+    'christmas',
+    'loc', // For local domains
+  ];
 
   // Find icon for a domain or app name
-  String? _findIconForDomain(String domain) {
+  Future<String?> _findIconForDomain(String domain) async {
     _logger.d('Looking for icon for domain/name: $domain');
 
     // Strip protocol if present
     domain = domain.replaceAll(RegExp(r'^https?://'), '');
 
-    // Extract domain without TLD
+    // Clean up the domain - remove any trailing dots to prevent double dots
+    domain = domain.replaceAll(RegExp(r'\.$'), '');
+
+    // Remove any consecutive dots (e.g., 'admin..com' -> 'admin.com')
+    domain = domain.replaceAll(RegExp(r'\.{2,}'), '.');
+
+    // Extract domain parts
     final domainParts = domain.split('.');
     String baseDomain = domain;
+    String? subdomain;
 
-    // If it has multiple parts (like github.com), use the domain structure
+    // If it has multiple parts, extract the base domain and subdomain if present
     if (domainParts.length > 1) {
       // Try with full domain first (e.g., github.com)
       String fullDomainPath = 'assets/vectors/$domain';
 
       // Extract base domain (e.g., github from github.com)
       baseDomain = domainParts[domainParts.length - 2];
+      _logger.d('Extracted base domain: $baseDomain from $domain');
+
+      // Check for subdomain (e.g., aws.amazon.com -> aws is subdomain, amazon is base domain)
+      if (domainParts.length > 2) {
+        subdomain = domainParts[domainParts.length - 3];
+        _logger.d('Extracted subdomain: $subdomain from $domain');
+      }
+
+      // Check for full domain path icons first
 
       // Check for domain/basedomain-icon.svg (e.g., github.com/github-icon.svg)
       String fullDomainIconAltPath = '$fullDomainPath/$baseDomain-icon.svg';
-      if (_fileExists(fullDomainIconAltPath)) {
+      if (await _checkAssetExists(fullDomainIconAltPath)) {
         _logger.d('Found icon at $fullDomainIconAltPath');
         return fullDomainIconAltPath;
       }
 
       // Check for domain/basedomain.svg (e.g., github.com/github.svg)
       String fullDomainIconPath = '$fullDomainPath/$baseDomain.svg';
-      if (_fileExists(fullDomainIconPath)) {
+      if (await _checkAssetExists(fullDomainIconPath)) {
         _logger.d('Found icon at $fullDomainIconPath');
         return fullDomainIconPath;
+      }
+
+      // If we have a subdomain, check for subdomain-specific icons
+      if (subdomain != null) {
+        // Check for domain/subdomain.svg (e.g., aws.amazon.com/aws.svg)
+        String subdomainIconPath = '$fullDomainPath/$subdomain.svg';
+        if (await _checkAssetExists(subdomainIconPath)) {
+          _logger.d('Found subdomain icon at $subdomainIconPath');
+          return subdomainIconPath;
+        }
+
+        // Check for domain/subdomain-icon.svg (e.g., aws.amazon.com/aws-icon.svg)
+        String subdomainIconAltPath = '$fullDomainPath/$subdomain-icon.svg';
+        if (await _checkAssetExists(subdomainIconAltPath)) {
+          _logger.d('Found subdomain icon at $subdomainIconAltPath');
+          return subdomainIconAltPath;
+        }
       }
     } else {
       // For single-word inputs (like 'github'), try common domain patterns
@@ -82,91 +258,195 @@ class IconService {
         final domainWithTld = '$domain.$tld';
         final domainPath = 'assets/vectors/$domainWithTld';
 
-        // Check for domainWithTld/domain.svg (e.g., github.com/github.svg)
-        String domainIconPath = '$domainPath/$domain.svg';
-        if (_fileExists(domainIconPath)) {
-          _logger.d('Found icon at $domainIconPath using common TLD pattern');
-          return domainIconPath;
-        }
-
         // Check for domainWithTld/domain-icon.svg (e.g., github.com/github-icon.svg)
         String domainIconAltPath = '$domainPath/$domain-icon.svg';
-        if (_fileExists(domainIconAltPath)) {
+        if (await _checkAssetExists(domainIconAltPath)) {
           _logger.d('Found icon at $domainIconAltPath using common TLD pattern');
           return domainIconAltPath;
+        }
+
+        // Check for domainWithTld/domain.svg (e.g., github.com/github.svg)
+        String domainIconPath = '$domainPath/$domain.svg';
+        if (await _checkAssetExists(domainIconPath)) {
+          _logger.d('Found icon at $domainIconPath using common TLD pattern');
+          return domainIconPath;
         }
       }
     }
 
     // Try with just the base name (for non-domain entries or fallback)
 
-    // Check for basedomain.svg directly in vectors folder
-    String directIconPath = 'assets/vectors/$baseDomain.svg';
-    if (_fileExists(directIconPath)) {
-      _logger.d('Found icon at $directIconPath');
-      return directIconPath;
-    }
-
     // Check for basedomain-icon.svg directly in vectors folder
     String directIconAltPath = 'assets/vectors/$baseDomain-icon.svg';
-    if (_fileExists(directIconAltPath)) {
+    if (await _checkAssetExists(directIconAltPath)) {
       _logger.d('Found icon at $directIconAltPath');
       return directIconAltPath;
     }
 
+    // Check for basedomain.svg directly in vectors folder
+    String directIconPath = 'assets/vectors/$baseDomain.svg';
+    if (await _checkAssetExists(directIconPath)) {
+      _logger.d('Found icon at $directIconPath');
+      return directIconPath;
+    }
+
     // Check for basedomain/basedomain-icon.svg
     String baseFolderIconAltPath = 'assets/vectors/$baseDomain/$baseDomain-icon.svg';
-    if (_fileExists(baseFolderIconAltPath)) {
+    if (await _checkAssetExists(baseFolderIconAltPath)) {
       _logger.d('Found icon at $baseFolderIconAltPath');
       return baseFolderIconAltPath;
     }
 
     // Check for basedomain/basedomain.svg
     String baseFolderIconPath = 'assets/vectors/$baseDomain/$baseDomain.svg';
-    if (_fileExists(baseFolderIconPath)) {
+    if (await _checkAssetExists(baseFolderIconPath)) {
       _logger.d('Found icon at $baseFolderIconPath');
       return baseFolderIconPath;
+    }
+
+    // If we have a subdomain, check for combined naming patterns in the base domain folder
+    if (subdomain != null) {
+      // Check for basedomain/basedomain-subdomain.svg (e.g., amazon/amazon-aws.svg)
+      String baseSubdomainPath = 'assets/vectors/$baseDomain/$baseDomain-$subdomain.svg';
+      if (await _checkAssetExists(baseSubdomainPath)) {
+        _logger.d('Found base-subdomain icon at $baseSubdomainPath');
+        return baseSubdomainPath;
+      }
+
+      // Check for basedomain/subdomain-basedomain.svg (e.g., amazon/aws-amazon.svg)
+      String subdomainBasePath = 'assets/vectors/$baseDomain/$subdomain-$baseDomain.svg';
+      if (await _checkAssetExists(subdomainBasePath)) {
+        _logger.d('Found subdomain-base icon at $subdomainBasePath');
+        return subdomainBasePath;
+      }
+
+      // Check for basedomain/subdomain.svg (e.g., amazon/aws.svg)
+      String subdomainInBasePath = 'assets/vectors/$baseDomain/$subdomain.svg';
+      if (await _checkAssetExists(subdomainInBasePath)) {
+        _logger.d('Found subdomain in base folder at $subdomainInBasePath');
+        return subdomainInBasePath;
+      }
+
+      // Check directly in vectors folder for combined names
+      String combinedPath1 = 'assets/vectors/$baseDomain-$subdomain.svg';
+      if (await _checkAssetExists(combinedPath1)) {
+        _logger.d('Found combined icon at $combinedPath1');
+        return combinedPath1;
+      }
+
+      String combinedPath2 = 'assets/vectors/$subdomain-$baseDomain.svg';
+      if (await _checkAssetExists(combinedPath2)) {
+        _logger.d('Found combined icon at $combinedPath2');
+        return combinedPath2;
+      }
     }
 
     _logger.d('No icon found for $domain');
     return null;
   }
 
-  // In Flutter, we can't reliably check if an asset exists at runtime
-  // So we'll just assume it exists and let the SVG loading handle any missing files
-  // This is a limitation of Flutter's asset system
-  bool _fileExists(String assetPath) {
-    // For debugging purposes, log the path we're checking
-    _logger.d('Checking for asset: $assetPath');
+  // Cache for asset existence checks to avoid repeated checks
+  final Map<String, bool> _assetExistsCache = {};
 
-    // We'll return true and let the SVG loading handle any missing files
-    // This is a workaround for Flutter's asset system limitations
-    return true;
+  // Check if an asset exists by attempting to load it as a ByteData
+  // This is more reliable than the previous approach but still has limitations
+  Future<bool> _checkAssetExists(String assetPath) async {
+    // Check cache first
+    if (_assetExistsCache.containsKey(assetPath)) {
+      return _assetExistsCache[assetPath]!;
+    }
+
+    _logger.d('Checking if asset exists: $assetPath');
+    try {
+      // Try to load the asset as a ByteData
+      await rootBundle.load(assetPath);
+      _logger.d('Asset exists: $assetPath');
+      _assetExistsCache[assetPath] = true;
+      return true;
+    } catch (e) {
+      // If we get an error, the asset doesn't exist
+      _logger.d('Asset does not exist: $assetPath');
+      _assetExistsCache[assetPath] = false;
+      return false;
+    }
+  }
+
+  // Safely load an SVG asset with proper error handling
+  Widget _safeLoadSvgAsset(String assetPath, {double size = 24.0, Color? color, required Widget fallbackWidget}) {
+    _logger.d('Safely loading SVG asset: $assetPath');
+
+    // Wrap in a try-catch block to handle any exceptions during asset loading
+    try {
+      // Use a FutureBuilder to handle the asynchronous loading of the SVG asset
+      // This provides better error handling for asset loading failures
+      return FutureBuilder<Widget>(
+        future: Future<Widget>(() {
+          try {
+            // Attempt to create the SVG picture
+            return SvgPicture.asset(
+              assetPath,
+              width: size,
+              height: size,
+              colorFilter: color != null ? ColorFilter.mode(color, BlendMode.srcIn) : null,
+              placeholderBuilder: (BuildContext context) {
+                // This is called when the asset exists but fails to parse as valid SVG
+                _logger.w('SVG failed to load via placeholderBuilder: $assetPath');
+                return fallbackWidget;
+              },
+            );
+          } catch (e, stackTrace) {
+            // Log the error that occurred during SVG creation
+            _logger.e('Error creating SVG picture: $assetPath - ${e.toString()}', e, stackTrace);
+            // Re-throw to be caught by the FutureBuilder's error handler
+            rethrow;
+          }
+        }),
+        builder: (context, snapshot) {
+          // If the future completed successfully, return the SVG widget
+          if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
+            return snapshot.data!;
+          }
+          // If there was an error, return the fallback widget
+          else if (snapshot.hasError) {
+            _logger.e('FutureBuilder error loading SVG: $assetPath - ${snapshot.error}', snapshot.error, snapshot.stackTrace);
+            return fallbackWidget;
+          }
+          // While loading, show the fallback widget
+          else {
+            return fallbackWidget;
+          }
+        },
+      );
+    } catch (e, stackTrace) {
+      // This is a final safety net to catch any other errors
+      _logger.e('Unexpected error in _safeLoadSvgAsset: $assetPath - ${e.toString()}', e, stackTrace);
+      return fallbackWidget;
+    }
   }
 
   // Get an SVG widget for the given issuer and name
-  Widget? getIconWidget(String issuer, String name, {double size = 24.0, Color? color}) {
-    final iconPath = findIconPath(issuer, name);
-    if (iconPath != null) {
-      _logger.d('Attempting to load SVG icon: $iconPath');
-      try {
-        // Use SvgPicture.asset with a placeholder builder to handle errors
-        return SvgPicture.asset(
-          iconPath,
-          width: size,
-          height: size,
-          colorFilter: color != null ? ColorFilter.mode(color, BlendMode.srcIn) : null,
-          placeholderBuilder: (BuildContext context) {
-            _logger.w('SVG failed to load, using fallback: $iconPath');
-            return _buildFallbackIcon(issuer, name, size: size, theme: Theme.of(context));
-          },
-        );
-      } catch (e, stackTrace) {
-        _logger.e('Error loading SVG icon: $iconPath', e, stackTrace);
-        return _buildFallbackIcon(issuer, name, size: size, theme: null);
-      }
-    }
-    return _buildFallbackIcon(issuer, name, size: size, theme: null);
+  Widget getIconWidget(String issuer, String name, {double size = 24.0, Color? color}) {
+    // Use a FutureBuilder to handle the async path lookup
+    return FutureBuilder<String?>(
+      // Find the icon path asynchronously
+      future: findIconPath(issuer, name),
+      builder: (BuildContext context, AsyncSnapshot<String?> snapshot) {
+        // Create the fallback widget
+        final fallbackWidget = _buildFallbackIcon(issuer, name, size: size, theme: Theme.of(context));
+
+        // If we have a valid path, try to load the SVG
+        if (snapshot.connectionState == ConnectionState.done && snapshot.hasData && snapshot.data != null) {
+          final iconPath = snapshot.data!;
+          _logger.d('Attempting to load SVG icon: $iconPath');
+
+          // Use the safe loading method
+          return _safeLoadSvgAsset(iconPath, size: size, color: color, fallbackWidget: fallbackWidget);
+        }
+
+        // If we're still loading or there was an error, use the fallback
+        return fallbackWidget;
+      },
+    );
   }
 
   // Build a fallback icon with the first letter of the name or issuer

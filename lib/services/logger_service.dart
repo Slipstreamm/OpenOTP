@@ -1,4 +1,5 @@
 import 'package:logger/logger.dart';
+import 'package:flutter/foundation.dart';
 
 class LoggerService {
   static final LoggerService _instance = LoggerService._internal();
@@ -10,13 +11,19 @@ class LoggerService {
   }
 
   LoggerService._internal() {
-    _logger = Logger(
-      printer: SimplePrinter(
-        colors: false, // Colorful log messages
-        printTime: true, // Should each log print contain a timestamp
-      ),
-      level: Level.debug, // Log level
-    );
+    Level logLevel;
+
+    if (kDebugMode) {
+      logLevel = Level.debug;
+    } else if (kProfileMode) {
+      logLevel = Level.info;
+    } else if (kReleaseMode) {
+      logLevel = Level.warning;
+    } else {
+      logLevel = Level.off;
+    }
+
+    _logger = Logger(printer: SimplePrinter(colors: false, printTime: true), level: logLevel);
   }
 
   void v(String message, [dynamic error, StackTrace? stackTrace]) {

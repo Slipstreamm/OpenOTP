@@ -3,7 +3,9 @@ import 'dart:typed_data';
 import 'package:zxing2/qrcode.dart';
 import 'package:image/image.dart' as img;
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'logger_service.dart';
+import '../utils/base32_utils.dart';
 
 class QrScannerService {
   final LoggerService _logger = LoggerService();
@@ -33,22 +35,59 @@ class QrScannerService {
     }
   }
 
-  // Pick an image file and decode QR code from it
+  // Pick an image file and decode QR code from it - platform aware method
   Future<String?> pickAndDecodeQrFromImage() async {
     _logger.d('Picking image file for QR decoding');
+    try {
+      // Use image_picker for mobile platforms and file_picker for desktop
+      if (Platform.isAndroid || Platform.isIOS) {
+        return await _pickAndDecodeQrFromImageMobile();
+      } else {
+        return await _pickAndDecodeQrFromImageDesktop();
+      }
+    } catch (e, stackTrace) {
+      _logger.e('Error picking or decoding QR from image', e, stackTrace);
+      return null;
+    }
+  }
+
+  // Pick an image using image_picker (for mobile platforms)
+  Future<String?> _pickAndDecodeQrFromImageMobile() async {
+    _logger.d('Picking image file for QR decoding using image_picker (mobile)');
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (image != null) {
+        String filePath = image.path;
+        _logger.i('Image file picked (mobile): $filePath');
+        return await decodeQrFromImagePath(filePath);
+      } else {
+        _logger.d('No image picked on mobile');
+        return null;
+      }
+    } catch (e, stackTrace) {
+      _logger.e('Error picking or decoding QR from image on mobile', e, stackTrace);
+      return null;
+    }
+  }
+
+  // Pick an image using file_picker (for desktop platforms)
+  Future<String?> _pickAndDecodeQrFromImageDesktop() async {
+    _logger.d('Picking image file for QR decoding using file_picker (desktop)');
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']);
 
       if (result != null && result.files.single.path != null) {
         String? filePath = result.files.single.path;
-        _logger.i('Image file picked: $filePath');
+        _logger.i('Image file picked (desktop): $filePath');
         return await decodeQrFromImagePath(filePath!);
       } else {
-        _logger.d('No image file picked or path is null');
+        _logger.d('No image file picked or path is null on desktop');
         return null;
       }
     } catch (e, stackTrace) {
-      _logger.e('Error picking or decoding QR from image', e, stackTrace);
+      _logger.e('Error picking or decoding QR from image on desktop', e, stackTrace);
       return null;
     }
   }
@@ -145,6 +184,18 @@ class QrScannerService {
       if (secret == null || secret.isEmpty) {
         _logger.w('Missing secret in OTP auth URI: $uri');
         throw FormatException('Missing secret in OTP auth URI');
+      }
+
+      // Validate that the secret contains valid base32 characters
+      if (!Base32Utils.isValidBase32(secret)) {
+        _logger.w('Invalid base32 characters in secret: $secret');
+        throw FormatException('Invalid base32 characters in secret key');
+      }
+
+      // Validate that the secret can be decoded
+      if (!Base32Utils.canDecode(secret)) {
+        _logger.w('Secret cannot be decoded as base32: $secret');
+        throw FormatException('Secret key cannot be decoded as base32');
       }
 
       // If issuer is in query params, it overrides the one in the label

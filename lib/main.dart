@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:provider/provider.dart';
 import 'services/logger_service.dart';
 import 'services/theme_service.dart';
@@ -14,10 +15,19 @@ void main() async {
   final logger = LoggerService();
   logger.i('Starting OpenOTP application');
 
-  // Set up error handling
+  // Set up error handling for Flutter errors
   FlutterError.onError = (FlutterErrorDetails details) {
     logger.e('Flutter error: ${details.exception}', details.exception, details.stack);
     FlutterError.presentError(details);
+  };
+
+  // Set up global error handler for uncaught async errors
+  // This will catch errors that happen in asynchronous code
+  // including asset loading errors
+  PlatformDispatcher.instance.onError = (error, stack) {
+    logger.e('Uncaught platform error', error, stack);
+    // Return true to indicate the error has been handled
+    return true;
   };
 
   // Initialize theme service

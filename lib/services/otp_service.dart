@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:otp/otp.dart';
 import '../models/otp_entry.dart';
+import '../utils/base32_utils.dart';
 import 'logger_service.dart';
 
 class OtpService {
@@ -10,19 +11,31 @@ class OtpService {
   String generateTotp(OtpEntry entry) {
     _logger.d('Generating TOTP code for ${entry.name}');
     try {
-      final code = OTP.generateTOTPCodeString(
-        entry.secret,
-        DateTime.now().millisecondsSinceEpoch,
-        length: entry.digits,
-        interval: entry.period,
-        algorithm: _getAlgorithm(entry.algorithm),
-        isGoogle: true,
-      );
-      _logger.i('Generated TOTP code for ${entry.name}');
-      return code;
+      // Validate the secret key before attempting to generate a code
+      if (!Base32Utils.isValidBase32(entry.secret)) {
+        _logger.e('Invalid base32 characters in secret for ${entry.name}');
+        return 'ERROR';
+      }
+
+      // Try to generate the code
+      try {
+        final code = OTP.generateTOTPCodeString(
+          entry.secret,
+          DateTime.now().millisecondsSinceEpoch,
+          length: entry.digits,
+          interval: entry.period,
+          algorithm: _getAlgorithm(entry.algorithm),
+          isGoogle: true,
+        );
+        _logger.i('Generated TOTP code for ${entry.name}');
+        return code;
+      } catch (e, stackTrace) {
+        _logger.e('Error generating TOTP code for ${entry.name}', e, stackTrace);
+        return 'ERROR';
+      }
     } catch (e, stackTrace) {
-      _logger.e('Error generating TOTP code for ${entry.name}', e, stackTrace);
-      rethrow;
+      _logger.e('Error in generateTotp for ${entry.name}', e, stackTrace);
+      return 'ERROR';
     }
   }
 
@@ -31,8 +44,19 @@ class OtpService {
   int getRemainingSeconds(OtpEntry entry) {
     _logger.d('Getting remaining seconds for ${entry.name}');
     try {
+      // Validate the secret key before attempting to get remaining seconds
+      if (!Base32Utils.isValidBase32(entry.secret)) {
+        _logger.e('Invalid base32 characters in secret for ${entry.name}');
+        return entry.period; // Return default period
+      }
+
       // Generate a code first to set the lastUsedTime in the OTP package
-      generateTotp(entry);
+      final code = generateTotp(entry);
+      if (code == 'ERROR') {
+        _logger.w('Could not generate code for ${entry.name}, returning default period');
+        return entry.period;
+      }
+
       // Then use the package's method to get remaining seconds
       final seconds = OTP.remainingSeconds(interval: entry.period);
       _logger.d('Remaining seconds for ${entry.name}: $seconds');
@@ -48,7 +72,18 @@ class OtpService {
   bool verifyOtp(String userCode, OtpEntry entry) {
     _logger.d('Verifying OTP code for ${entry.name}');
     try {
+      // Validate the secret key before attempting to verify
+      if (!Base32Utils.isValidBase32(entry.secret)) {
+        _logger.e('Invalid base32 characters in secret for ${entry.name}');
+        return false;
+      }
+
       final generatedCode = generateTotp(entry);
+      if (generatedCode == 'ERROR') {
+        _logger.w('Could not generate code for ${entry.name}, verification failed');
+        return false;
+      }
+
       final isValid = OTP.constantTimeVerification(userCode, generatedCode);
       _logger.i('OTP code verification for ${entry.name}: ${isValid ? 'valid' : 'invalid'}');
       return isValid;

@@ -5,6 +5,7 @@ import '../models/settings_model.dart';
 import '../services/logger_service.dart';
 import '../services/theme_service.dart';
 import '../services/auth_service.dart';
+import '../services/secure_storage_service.dart';
 import '../utils/page_transitions.dart';
 import '../utils/route_generator.dart';
 
@@ -17,6 +18,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final LoggerService _logger = LoggerService();
+  final SecureStorageService _storageService = SecureStorageService();
 
   @override
   void initState() {
@@ -282,8 +284,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       final hasPassword = snapshot.data ?? false;
 
                       return SwitchListTile(
-                        title: const Text('Password Encryption'),
-                        subtitle: const Text('Add a second layer of encryption using your password'),
+                        title: const Text('Encrypt OTP Keys'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text('Encrypt your OTP keys with your password'),
+                            Text('Malware can easily decrypt your keys if this is off', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
                         value: themeService.settings.usePasswordEncryption && hasPassword,
                         onChanged:
                             hasPassword
@@ -341,6 +349,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     subtitle: const Text('Import OTP entries and settings from a file'),
                     leading: const Icon(Icons.download_rounded),
                     onTap: () => _navigateToImportScreen(context),
+                  ),
+                  ListTile(
+                    title: const Text('Clean Up Invalid Entries'),
+                    subtitle: const Text('Remove any OTP entries with invalid secret keys'),
+                    leading: const Icon(Icons.cleaning_services),
+                    onTap: () => _cleanupInvalidEntries(context),
                   ),
                 ],
               ),
@@ -514,6 +528,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (e, stackTrace) {
       _logger.e('Error navigating to import screen', e, stackTrace);
+    }
+  }
+
+  // Clean up invalid OTP entries
+  Future<void> _cleanupInvalidEntries(BuildContext context) async {
+    _logger.d('Starting cleanup of invalid OTP entries');
+    try {
+      // Show a confirmation dialog first
+      final shouldProceed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Clean Up Invalid Entries'),
+            content: const Text(
+              'This will scan your OTP entries and remove any with invalid secret keys. '
+              'This action cannot be undone.\n\n'
+              'Do you want to continue?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext, false);
+                },
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext, true);
+                },
+                child: const Text('Continue'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (shouldProceed != true) {
+        _logger.d('Cleanup cancelled by user');
+        return;
+      }
+
+      // Store a reference to the scaffold messenger before the async gap
+      if (!mounted) return;
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+      // Show a loading indicator
+      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Cleaning up invalid entries...')));
+
+      // Run the cleanup
+      final removedCount = await _storageService.cleanupInvalidEntries();
+
+      // Show the result
+      if (!mounted) return;
+      if (removedCount > 0) {
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Removed $removedCount invalid OTP ${removedCount == 1 ? 'entry' : 'entries'}')));
+      } else {
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('No invalid entries found')));
+      }
+    } catch (e, stackTrace) {
+      _logger.e('Error cleaning up invalid OTP entries', e, stackTrace);
+
+      // Show error message if still mounted
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error cleaning up entries: ${e.toString()}')));
+      }
     }
   }
 

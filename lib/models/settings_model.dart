@@ -512,7 +512,7 @@ class SettingsModel {
     return SettingsModel(
       themeMode: ThemeMode.values[json['themeMode'] ?? 0],
       useBiometrics: json['useBiometrics'] ?? false,
-      autoLockTimeout: json['autoLockTimeout'] ?? 5,
+      autoLockTimeout: json['autoLockTimeout'] ?? -1, // Always lock
       pageTransitionType: json['pageTransitionType'] != null ? PageTransitionType.values[json['pageTransitionType']] : PageTransitionType.rightToLeft,
       homeViewType: json['homeViewType'] != null ? HomeViewType.values[json['homeViewType']] : HomeViewType.grid,
       themeStyleType: json['themeStyleType'] != null ? ThemeStyleType.values[json['themeStyleType']] : ThemeStyleType.defaultStyle,

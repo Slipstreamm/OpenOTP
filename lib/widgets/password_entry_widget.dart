@@ -27,7 +27,7 @@ class _PasswordEntryWidgetState extends State<PasswordEntryWidget> {
   final LoggerService _logger = LoggerService();
   final TextEditingController _passwordController = TextEditingController();
   final FocusNode _passwordFocusNode = FocusNode();
-  
+
   bool _isAuthenticating = false;
   bool _isObscured = true;
   String? _errorMessage;
@@ -43,7 +43,7 @@ class _PasswordEntryWidgetState extends State<PasswordEntryWidget> {
         _authenticateWithBiometrics();
       });
     }
-    
+
     // Set focus to password field
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _passwordFocusNode.requestFocus();
@@ -87,7 +87,7 @@ class _PasswordEntryWidgetState extends State<PasswordEntryWidget> {
 
   Future<void> _verifyPassword() async {
     if (_isAuthenticating) return;
-    
+
     final password = _passwordController.text;
     if (password.isEmpty) {
       setState(() {
@@ -130,33 +130,26 @@ class _PasswordEntryWidgetState extends State<PasswordEntryWidget> {
       appBar: AppBar(
         title: const Text('Authentication Required'),
         automaticallyImplyLeading: widget.canCancel,
-        leading: widget.canCancel 
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () {
-                  if (widget.onCancelled != null) {
-                    widget.onCancelled!();
-                  }
-                },
-              )
-            : null,
+        leading:
+            widget.canCancel
+                ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () {
+                    if (widget.onCancelled != null) {
+                      widget.onCancelled!();
+                    }
+                  },
+                )
+                : null,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.lock_outline,
-              size: 64,
-              color: Colors.blue,
-            ),
+            Icon(Icons.lock_outline, size: 64, color: Theme.of(context).primaryColor),
             const SizedBox(height: 24),
-            const Text(
-              'Enter your password to continue',
-              style: TextStyle(fontSize: 18),
-              textAlign: TextAlign.center,
-            ),
+            const Text('Enter your password to continue', style: TextStyle(fontSize: 18), textAlign: TextAlign.center),
             const SizedBox(height: 32),
             TextField(
               controller: _passwordController,
@@ -187,12 +180,8 @@ class _PasswordEntryWidgetState extends State<PasswordEntryWidget> {
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _isAuthenticating ? null : _verifyPassword,
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size.fromHeight(50),
-              ),
-              child: _isAuthenticating
-                  ? const CircularProgressIndicator()
-                  : const Text('Unlock', style: TextStyle(fontSize: 16)),
+              style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+              child: _isAuthenticating ? const CircularProgressIndicator() : const Text('Unlock', style: TextStyle(fontSize: 16)),
             ),
             if (widget.biometricAvailable) ...[
               const SizedBox(height: 16),
@@ -200,9 +189,7 @@ class _PasswordEntryWidgetState extends State<PasswordEntryWidget> {
                 icon: const Icon(Icons.fingerprint),
                 label: const Text('Use Biometrics'),
                 onPressed: _isAuthenticating ? null : _authenticateWithBiometrics,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50),
-                ),
+                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
               ),
             ],
           ],

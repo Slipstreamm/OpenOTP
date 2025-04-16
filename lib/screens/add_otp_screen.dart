@@ -4,6 +4,7 @@ import '../models/otp_entry.dart';
 import '../services/secure_storage_service.dart';
 import '../services/logger_service.dart';
 import '../services/qr_scanner_service.dart';
+import '../utils/base32_utils.dart';
 import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 
 class AddOtpScreen extends StatefulWidget {
@@ -79,10 +80,18 @@ class _AddOtpScreenState extends State<AddOtpScreen> {
     if (_formKey.currentState!.validate()) {
       _logger.d('Form validation successful');
       try {
+        // Additional validation to ensure the secret can be decoded
+        final secretKey = _secretController.text;
+        if (!Base32Utils.canDecode(secretKey)) {
+          _logger.w('Secret key cannot be decoded as base32');
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid secret key format. Please check your input.')));
+          return;
+        }
+
         final newEntry = OtpEntry(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           name: _nameController.text,
-          secret: _secretController.text,
+          secret: secretKey,
           issuer: _issuerController.text,
           digits: _digits,
           period: _period,
@@ -99,6 +108,9 @@ class _AddOtpScreenState extends State<AddOtpScreen> {
         }
       } catch (e, stackTrace) {
         _logger.e('Error saving OTP entry', e, stackTrace);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving OTP entry: ${e.toString()}')));
+        }
       }
     } else {
       _logger.w('Form validation failed');
@@ -274,6 +286,10 @@ class _AddOtpScreenState extends State<AddOtpScreen> {
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please enter a secret key';
+                        }
+                        // Validate base32 characters
+                        if (!Base32Utils.isValidBase32(value)) {
+                          return 'Invalid base32 characters. Use only A-Z and 2-7';
                         }
                         return null;
                       },
