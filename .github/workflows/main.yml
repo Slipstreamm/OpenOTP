@@ -32,6 +32,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Fix flutter SDK folder permission
+        run: git config --global --add safe.directory %TEMP%/flutter/--
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -82,6 +85,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Fix flutter SDK folder permission
+        run: git config --global --add safe.directory /tmp/flutter/--
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -122,6 +128,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Fix flutter SDK folder permission
+        run: git config --global --add safe.directory /tmp/flutter/--
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
