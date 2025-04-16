@@ -11,28 +11,34 @@ jobs:
       tag_name: ${{ steps.get_tag.outputs.tag }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Get latest tag
         id: get_tag
         run: |
-          TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
-          echo "tag=$TAG" >> $GITHUB_ENV
-          echo "::set-output name=tag::${TAG}"
+          TAG=$(git describe --tags "$(git rev-list --tags --max-count=1)")
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
   windows-build:
     name: Build for Windows (Inno Setup)
     runs-on: windows-latest
     needs: get-latest-tag
 
+    outputs:
+      windows_artifact: ${{ steps.upload_windows.outputs.artifact_path }}
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Fix flutter SDK folder permission
+        run: git config --global --add safe.directory %TEMP%/flutter/--
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          flutter-version: '3.29.2'
 
       - name: Install dependencies
         run: flutter pub get
@@ -61,7 +67,8 @@ jobs:
         run: iscc package.iss
 
       - name: Upload Installer
-        uses: actions/upload-artifact@v3
+        id: upload_windows
+        uses: actions/upload-artifact@v4
         with:
           name: OpenOTP-Windows-Installer
           path: OpenOTPInstaller.exe
@@ -71,14 +78,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: get-latest-tag
 
+    outputs:
+      linux_artifact: ${{ steps.upload_linux.outputs.artifact_path }}
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Fix flutter SDK folder permission
+        run: git config --global --add safe.directory /tmp/flutter/--
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          flutter-version: '3.29.2'
 
       - name: Install dependencies
         run: flutter pub get
@@ -98,7 +111,8 @@ jobs:
           appimagetool AppDir OpenOTP.AppImage
 
       - name: Upload AppImage
-        uses: actions/upload-artifact@v3
+        id: upload_linux
+        uses: actions/upload-artifact@v4
         with:
           name: OpenOTP-Linux-AppImage
           path: OpenOTP.AppImage
@@ -108,14 +122,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: get-latest-tag
 
+    outputs:
+      android_artifact: ${{ steps.upload_android.outputs.artifact_path }}
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Fix flutter SDK folder permission
+        run: git config --global --add safe.directory /tmp/flutter/--
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          flutter-version: '3.29.2'
 
       - name: Install dependencies
         run: flutter pub get
@@ -124,7 +144,8 @@ jobs:
         run: flutter build apk
 
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        id: upload_android
+        uses: actions/upload-artifact@v4
         with:
           name: OpenOTP-Android-APK
           path: build/app/outputs/flutter-apk/app-release.apk
@@ -133,6 +154,9 @@ jobs:
     name: Trigger iOS and macOS Build on Codemagic
     runs-on: ubuntu-latest
     needs: get-latest-tag
+
+    outputs:
+      build_id: ${{ steps.trigger_build.outputs.build_id }}
 
     steps:
       - name: Trigger Codemagic Build
@@ -144,55 +168,93 @@ jobs:
           -d '{
             "appId": "67ff48a213eb8825035b25df",
             "workflowId": "67ff48a213eb8825035b25de",
-            "branch": "main",
+            "branch": "master",
             "environment": {
               "TAG_NAME": "${{ needs.get-latest-tag.outputs.tag_name }}"
             }
           }' \
           https://api.codemagic.io/builds)
 
-          echo $RESPONSE
-          BUILD_ID=$(echo $RESPONSE | jq -r '.buildId')
-          echo "::set-output name=build_id::$BUILD_ID"
+          echo "$RESPONSE"
+          BUILD_ID=$(echo "$RESPONSE" | jq -r '.buildId')
+          echo "build_id=${BUILD_ID}" >> "$GITHUB_OUTPUT"
+
+  wait-for-codemagic:
+    name: Wait for Codemagic Build Completion
+    runs-on: ubuntu-latest
+    needs: ios-macos-build
+
+    outputs:
+      build_status: ${{ steps.check_status.outputs.status }}
+
+    steps:
+      - name: Wait for Build to Complete
+        id: check_status
+        run: |
+          BUILD_ID=${{ needs.ios-macos-build.outputs.build_id }}
+          STATUS="in-progress"
+          while [ "$STATUS" == "in-progress" ] || [ "$STATUS" == "queued" ]; do
+            echo "Checking build status..."
+            RESPONSE=$(curl -X GET \
+              -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
+              "https://api.codemagic.io/builds/$BUILD_ID")
+
+            echo "$RESPONSE"
+            STATUS=$(echo "$RESPONSE" | jq -r '.status')
+            echo "Current Status: $STATUS"
+
+            if [ "$STATUS" == "failed" ]; then
+              echo "Codemagic build failed."
+              exit 1
+            fi
+
+            if [ "$STATUS" == "success" ]; then
+              echo "Codemagic build completed successfully."
+              break
+            fi
+
+            echo "Waiting for 30 seconds before checking again..."
+            sleep 30
+          done
+          echo "status=${STATUS}" >> "$GITHUB_OUTPUT"
 
   fetch-codemagic-artifacts:
     name: Fetch Codemagic Artifacts
     runs-on: ubuntu-latest
-    needs: ios-macos-build
+    needs: wait-for-codemagic
+
+    outputs:
+      codemagic_artifact: ${{ steps.upload_codemagic.outputs.artifact_path }}
+
     steps:
       - name: Download Codemagic Artifacts
         run: |
           BUILD_ID=${{ needs.ios-macos-build.outputs.build_id }}
           curl -X GET \
-          -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
-          https://api.codemagic.io/artifacts?buildId=$BUILD_ID -o codemagic-artifacts.zip
+            -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
+            "https://api.codemagic.io/artifacts?buildId=$BUILD_ID" -o codemagic-artifacts.zip
 
       - name: Extract Codemagic Artifacts
-        run: |
-          unzip codemagic-artifacts.zip -d codemagic-artifacts
+        run: unzip codemagic-artifacts.zip -d codemagic-artifacts
 
       - name: Upload Codemagic Artifacts
-        uses: actions/upload-artifact@v3
+        id: upload_codemagic
+        uses: actions/upload-artifact@v4
         with:
           name: Codemagic-Artifacts
           path: codemagic-artifacts/
-
+  
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [windows-build, linux-build, android-build, fetch-codemagic-artifacts]
-    steps:
-      - name: Download All Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/
+    needs: [get-latest-tag, windows-build, linux-build, android-build, fetch-codemagic-artifacts]
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
+    steps:
+      - name: Create GitHub Release and Upload Assets
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ needs.get-latest-tag.outputs.tag_name }}
-          release_name: "Release ${{ needs.get-latest-tag.outputs.tag_name }}"
+          tag: ${{ needs.get-latest-tag.outputs.tag_name }}
+          name: "Release ${{ needs.get-latest-tag.outputs.tag_name }}"
           body: |
             ## Release Notes
             - Windows Installer
@@ -201,13 +263,9 @@ jobs:
             - iOS/macOS Builds
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Release Assets
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/
-          asset_name: OpenOTP-Multi-Platform-Build.zip
-          asset_content_type: application/zip
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: |
+            ${{ needs.windows-build.outputs.windows_artifact }}
+            ${{ needs.linux-build.outputs.linux_artifact }}
+            ${{ needs.android-build.outputs.android_artifact }}
+            ${{ needs.fetch-codemagic-artifacts.outputs.codemagic_artifact }}
