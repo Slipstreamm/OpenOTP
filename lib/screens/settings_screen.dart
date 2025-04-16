@@ -1,0 +1,1161 @@
+import 'package:flutter/material.dart';
+import 'package:openotp/widgets/custom_app_bar.dart';
+import 'package:provider/provider.dart';
+import '../models/settings_model.dart';
+import '../services/logger_service.dart';
+import '../services/theme_service.dart';
+import '../services/auth_service.dart';
+import '../utils/page_transitions.dart';
+import '../utils/route_generator.dart';
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  final LoggerService _logger = LoggerService();
+
+  @override
+  void initState() {
+    super.initState();
+    _logger.i('Initializing SettingsScreen');
+  }
+
+  void _showPageTransitionDialog(BuildContext context, ThemeService themeService) {
+    _logger.d('Showing page transition selection dialog');
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Choose Page Transition'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<PageTransitionType>(
+                  title: const Text('Fade'),
+                  value: PageTransitionType.fade,
+                  groupValue: themeService.settings.pageTransitionType,
+                  onChanged: (PageTransitionType? value) {
+                    if (value != null) {
+                      _logger.d('Page transition selected: $value');
+                      themeService.updatePageTransitionType(value);
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                RadioListTile<PageTransitionType>(
+                  title: const Text('Slide Right to Left'),
+                  value: PageTransitionType.rightToLeft,
+                  groupValue: themeService.settings.pageTransitionType,
+                  onChanged: (PageTransitionType? value) {
+                    if (value != null) {
+                      _logger.d('Page transition selected: $value');
+                      themeService.updatePageTransitionType(value);
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                RadioListTile<PageTransitionType>(
+                  title: const Text('Slide Left to Right'),
+                  value: PageTransitionType.leftToRight,
+                  groupValue: themeService.settings.pageTransitionType,
+                  onChanged: (PageTransitionType? value) {
+                    if (value != null) {
+                      _logger.d('Page transition selected: $value');
+                      themeService.updatePageTransitionType(value);
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                RadioListTile<PageTransitionType>(
+                  title: const Text('Slide Down to Up'),
+                  value: PageTransitionType.downToUp,
+                  groupValue: themeService.settings.pageTransitionType,
+                  onChanged: (PageTransitionType? value) {
+                    if (value != null) {
+                      _logger.d('Page transition selected: $value');
+                      themeService.updatePageTransitionType(value);
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                RadioListTile<PageTransitionType>(
+                  title: const Text('Scale'),
+                  value: PageTransitionType.scale,
+                  groupValue: themeService.settings.pageTransitionType,
+                  onChanged: (PageTransitionType? value) {
+                    if (value != null) {
+                      _logger.d('Page transition selected: $value');
+                      themeService.updatePageTransitionType(value);
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                RadioListTile<PageTransitionType>(
+                  title: const Text('Right to Left with Fade'),
+                  value: PageTransitionType.rightToLeftWithFade,
+                  groupValue: themeService.settings.pageTransitionType,
+                  onChanged: (PageTransitionType? value) {
+                    if (value != null) {
+                      _logger.d('Page transition selected: $value');
+                      themeService.updatePageTransitionType(value);
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _logger.d('Page transition selection dialog cancelled');
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Reusable Settings Card Widget
+  Widget _buildSettingsCard({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+    bool initiallyExpanded = false,
+  }) {
+    return Card(
+      color: Theme.of(context).colorScheme.surface,
+      margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+      elevation: 2.0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: initiallyExpanded,
+          leading: Icon(icon),
+          title: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _logger.d('Building SettingsScreen widget');
+    return Scaffold(
+      appBar: CustomAppBar(title: 'Settings'),
+      body: Consumer<ThemeService>(
+        builder: (context, themeService, child) {
+          return ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            children: [
+              // Appearance section with the new card widget
+              _buildSettingsCard(
+                context: context,
+                title: 'Appearance',
+                icon: Icons.palette,
+                initiallyExpanded: true,
+                children: [
+                  ListTile(
+                    title: const Text('Light/Dark Mode'),
+                    subtitle: Text(_getThemeModeText(themeService.themeMode)),
+                    leading: const Icon(Icons.brightness_6),
+                    onTap: () => _showThemeDialog(context, themeService),
+                  ),
+                  ListTile(
+                    title: const Text('Theme Style'),
+                    subtitle: Text(_getThemeStyleText(themeService.settings.themeStyleType)),
+                    leading: const Icon(Icons.color_lens),
+                    onTap: () => _showThemeStyleDialog(context, themeService),
+                  ),
+                  ListTile(
+                    title: const Text('Create Custom Theme'),
+                    subtitle: const Text('Design your own theme colors'),
+                    leading: const Icon(Icons.palette),
+                    onTap: () => Navigator.pushNamed(context, RouteGenerator.customTheme),
+                  ),
+                  ListTile(
+                    title: const Text('Home Screen View'),
+                    subtitle: Text(_getHomeViewTypeText(themeService.settings.homeViewType)),
+                    leading: const Icon(Icons.grid_view),
+                    onTap: () => _showHomeViewTypeDialog(context, themeService),
+                  ),
+                ],
+              ),
+
+              // Animations section
+              _buildSettingsCard(
+                context: context,
+                title: 'Animations',
+                icon: Icons.animation,
+                children: [
+                  ListTile(
+                    title: const Text('Page Transitions'),
+                    subtitle: Text(_getPageTransitionText(themeService.settings.pageTransitionType)),
+                    leading: const Icon(Icons.animation),
+                    onTap: () => _showPageTransitionDialog(context, themeService),
+                  ),
+                ],
+              ),
+
+              // Security section
+              _buildSettingsCard(
+                context: context,
+                title: 'Security',
+                icon: Icons.security,
+                children: [
+                  SwitchListTile(
+                    title: const Text('Simple Delete Confirmation'),
+                    subtitle: const Text('Use a checkbox instead of typing the entry name to confirm deletion'),
+                    value: themeService.settings.simpleDeleteConfirmation,
+                    onChanged: (value) {
+                      _logger.d('Simple delete confirmation toggled to: $value');
+                      themeService.updateSimpleDeleteConfirmation(value);
+                    },
+                  ),
+                  FutureBuilder<bool>(
+                    future: _authService.isBiometricAvailable(),
+                    builder: (context, snapshot) {
+                      final biometricsAvailable = snapshot.data ?? false;
+
+                      return SwitchListTile(
+                        title: const Text('Use Biometric Authentication'),
+                        subtitle: Text(
+                          biometricsAvailable ? 'Require biometric authentication to open the app' : 'Biometric authentication is not available on this device',
+                        ),
+                        value: themeService.settings.useBiometrics && biometricsAvailable,
+                        onChanged:
+                            biometricsAvailable
+                                ? (value) {
+                                  _logger.d('Biometric authentication toggled to: $value');
+                                  if (value) {
+                                    // If enabling biometrics, check if a passcode is set as fallback
+                                    _authService.isPasswordSet().then((hasPasscode) {
+                                      if (!hasPasscode && mounted) {
+                                        // If no passcode is set, show passcode setup screen
+                                        // Use a post-frame callback to ensure the context is valid
+                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          if (mounted) {
+                                            _showPasswordSetupDialog(context);
+                                          }
+                                        });
+                                      }
+                                    });
+                                  }
+                                  themeService.updateBiometrics(value);
+                                }
+                                : null,
+                      );
+                    },
+                  ),
+                  FutureBuilder<bool>(
+                    future: _authService.isPasswordSet(),
+                    builder: (context, snapshot) {
+                      final hasPasscode = snapshot.data ?? false;
+
+                      return ListTile(
+                        title: const Text('App Password'),
+                        subtitle: Text(hasPasscode ? 'Change or remove password' : 'Set up a password for app security'),
+                        leading: const Icon(Icons.password),
+                        onTap: () => _showPasswordOptionsDialog(context),
+                      );
+                    },
+                  ),
+                  FutureBuilder<bool>(
+                    future: _authService.isPasswordSet(),
+                    builder: (context, snapshot) {
+                      final hasPassword = snapshot.data ?? false;
+
+                      return SwitchListTile(
+                        title: const Text('Password Encryption'),
+                        subtitle: const Text('Add a second layer of encryption using your password'),
+                        value: themeService.settings.usePasswordEncryption && hasPassword,
+                        onChanged:
+                            hasPassword
+                                ? (value) {
+                                  _logger.d('Password encryption toggled to: $value');
+                                  if (value) {
+                                    _showPasswordEncryptionInfoDialog(context, themeService);
+                                  } else {
+                                    themeService.updatePasswordEncryption(false);
+                                  }
+                                }
+                                : null,
+                        secondary: const Icon(Icons.enhanced_encryption),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    title: const Text('Auto-Lock Timeout'),
+                    subtitle: Text(_getAutoLockText(themeService.settings.autoLockTimeout)),
+                    leading: const Icon(Icons.timer),
+                    onTap: () => _showAutoLockDialog(context, themeService),
+                  ),
+                ],
+              ),
+
+              // Synchronization section
+              _buildSettingsCard(
+                context: context,
+                title: 'Synchronization',
+                icon: Icons.sync,
+                children: [
+                  ListTile(
+                    title: const Text('LAN Device Sync'),
+                    subtitle: const Text('Sync OTP entries and settings with other devices on your network'),
+                    leading: const Icon(Icons.sync),
+                    onTap: () => _navigateToLanSyncScreen(context),
+                  ),
+                ],
+              ),
+
+              // Data Management section
+              _buildSettingsCard(
+                context: context,
+                title: 'Data Management',
+                icon: Icons.storage,
+                children: [
+                  ListTile(
+                    title: const Text('Export Data'),
+                    subtitle: const Text('Export your OTP entries and settings to a file'),
+                    leading: const Icon(Icons.upload_file),
+                    onTap: () => _navigateToExportScreen(context),
+                  ),
+                  ListTile(
+                    title: const Text('Import Data'),
+                    subtitle: const Text('Import OTP entries and settings from a file'),
+                    leading: const Icon(Icons.download_rounded),
+                    onTap: () => _navigateToImportScreen(context),
+                  ),
+                ],
+              ),
+
+              // About section
+              _buildSettingsCard(
+                context: context,
+                title: 'About',
+                icon: Icons.info_outline,
+                children: [ListTile(title: const Text('Version'), subtitle: const Text('1.0.0'), leading: const Icon(Icons.info_outline))],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  final AuthService _authService = AuthService();
+
+  // Show remove password confirmation dialog
+  void _showRemovePasswordConfirmDialog(BuildContext context) async {
+    _logger.d('Showing remove password confirmation dialog');
+
+    // Check if password encryption is enabled
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    final usePasswordEncryption = themeService.settings.usePasswordEncryption;
+
+    if (usePasswordEncryption) {
+      // Show warning about password encryption first
+      final shouldProceed = await _showPasswordEncryptionWarningDialog(context);
+      if (!shouldProceed) {
+        _logger.d('Password removal cancelled due to encryption warning');
+        return;
+      }
+    }
+
+    // Check if widget is still mounted after the async operation
+    if (!mounted) return;
+
+    // Use a post-frame callback to ensure the context is valid
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: const Text('Remove Password'),
+              content: const Text('Are you sure you want to remove your password? This will reduce the security of your app.'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    _logger.d('Remove password cancelled');
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(foregroundColor: Colors.white, backgroundColor: Colors.red),
+                  onPressed: () async {
+                    _logger.d('Removing password confirmed');
+                    // Store context before async gap
+                    final scaffoldMessenger = ScaffoldMessenger.of(dialogContext);
+                    Navigator.pop(dialogContext); // Close dialog first
+
+                    // Then remove password - use await to handle any potential errors
+                    try {
+                      final success = await _authService.removePassword();
+                      if (success && mounted) {
+                        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Password removed successfully')));
+
+                        // If we had password encryption enabled, show a message that it's been disabled
+                        if (usePasswordEncryption && mounted) {
+                          // Add a slight delay to avoid overlapping snackbars
+                          await Future.delayed(const Duration(seconds: 1));
+                          if (mounted) {
+                            scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Password encryption has been disabled')));
+                          }
+                        }
+                      }
+                    } catch (e) {
+                      _logger.e('Error removing password', e);
+                      if (mounted) {
+                        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Error removing password')));
+                      }
+                    }
+                  },
+                  child: const Text('Remove'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    });
+  }
+
+  // Show warning dialog for password encryption when removing password
+  Future<bool> _showPasswordEncryptionWarningDialog(BuildContext context) async {
+    _logger.d('Showing password encryption warning dialog');
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Warning: Password Encryption Enabled'),
+          content: const Text(
+            'You currently have password encryption enabled for your OTP data. '
+            'Removing your password will also disable password encryption and decrypt your data.\n\n'
+            'Are you sure you want to continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _logger.d('Password encryption warning acknowledged, cancelling password removal');
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(foregroundColor: Colors.white, backgroundColor: Colors.red),
+              onPressed: () {
+                _logger.d('Password encryption warning acknowledged, proceeding with password removal');
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
+  }
+
+  // Navigate to LAN sync screen
+  void _navigateToLanSyncScreen(BuildContext context) async {
+    _logger.d('Navigating to LAN sync screen');
+    try {
+      await Navigator.pushNamed(context, RouteGenerator.lanSync);
+      _logger.i('Returned from LAN sync screen');
+    } catch (e, stackTrace) {
+      _logger.e('Error navigating to LAN sync screen', e, stackTrace);
+    }
+  }
+
+  // Navigate to export screen
+  void _navigateToExportScreen(BuildContext context) async {
+    _logger.d('Navigating to export screen');
+    try {
+      await Navigator.pushNamed(context, RouteGenerator.export);
+      _logger.i('Returned from export screen');
+    } catch (e, stackTrace) {
+      _logger.e('Error navigating to export screen', e, stackTrace);
+    }
+  }
+
+  // Navigate to import screen
+  void _navigateToImportScreen(BuildContext context) async {
+    _logger.d('Navigating to import screen');
+    try {
+      // Store a reference to the scaffold messenger before the async gap
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+      final result = await Navigator.pushNamed<bool>(context, RouteGenerator.import);
+      _logger.i('Returned from import screen with result: $result');
+
+      // If data was imported, show a message
+      if (result == true && mounted) {
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Import completed. Restart the app to see all changes.')));
+      }
+    } catch (e, stackTrace) {
+      _logger.e('Error navigating to import screen', e, stackTrace);
+    }
+  }
+
+  void _showThemeDialog(BuildContext context, ThemeService themeService) {
+    _logger.d('Showing theme selection dialog');
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Choose Light/Dark Mode'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<ThemeMode>(
+                title: const Text('System'),
+                value: ThemeMode.system,
+                groupValue: themeService.themeMode,
+                onChanged: (ThemeMode? value) {
+                  if (value != null) {
+                    _logger.d('Theme mode selected: $value');
+                    themeService.updateThemeMode(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<ThemeMode>(
+                title: const Text('Light'),
+                value: ThemeMode.light,
+                groupValue: themeService.themeMode,
+                onChanged: (ThemeMode? value) {
+                  if (value != null) {
+                    _logger.d('Theme mode selected: $value');
+                    themeService.updateThemeMode(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<ThemeMode>(
+                title: const Text('Dark'),
+                value: ThemeMode.dark,
+                groupValue: themeService.themeMode,
+                onChanged: (ThemeMode? value) {
+                  if (value != null) {
+                    _logger.d('Theme mode selected: $value');
+                    themeService.updateThemeMode(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _logger.d('Theme selection dialog cancelled');
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showThemeStyleDialog(BuildContext context, ThemeService themeService) {
+    _logger.d('Showing theme style selection dialog');
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Choose Theme Style'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<ThemeStyleType>(
+                title: const Text('Default'),
+                subtitle: const Text('Blue theme'),
+                value: ThemeStyleType.defaultStyle,
+                groupValue: themeService.settings.themeStyleType,
+                onChanged: (ThemeStyleType? value) {
+                  if (value != null) {
+                    _logger.d('Theme style selected: $value');
+                    themeService.updateThemeStyleType(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<ThemeStyleType>(
+                title: const Text('Forest'),
+                subtitle: const Text('Green theme'),
+                value: ThemeStyleType.forest,
+                groupValue: themeService.settings.themeStyleType,
+                onChanged: (ThemeStyleType? value) {
+                  if (value != null) {
+                    _logger.d('Theme style selected: $value');
+                    themeService.updateThemeStyleType(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<ThemeStyleType>(
+                title: const Text('Sunset'),
+                subtitle: const Text('Orange theme'),
+                value: ThemeStyleType.sunset,
+                groupValue: themeService.settings.themeStyleType,
+                onChanged: (ThemeStyleType? value) {
+                  if (value != null) {
+                    _logger.d('Theme style selected: $value');
+                    themeService.updateThemeStyleType(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<ThemeStyleType>(
+                title: const Text('Violet'),
+                subtitle: const Text('Purple theme'),
+                value: ThemeStyleType.violet,
+                groupValue: themeService.settings.themeStyleType,
+                onChanged: (ThemeStyleType? value) {
+                  if (value != null) {
+                    _logger.d('Theme style selected: $value');
+                    themeService.updateThemeStyleType(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<ThemeStyleType>(
+                title: const Text('Custom'),
+                subtitle: const Text('Your custom theme'),
+                value: ThemeStyleType.custom,
+                groupValue: themeService.settings.themeStyleType,
+                onChanged: (ThemeStyleType? value) {
+                  if (value != null) {
+                    _logger.d('Theme style selected: $value');
+                    themeService.updateThemeStyleType(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _logger.d('Theme style selection dialog cancelled');
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAutoLockDialog(BuildContext context, ThemeService themeService) {
+    _logger.d('Showing auto-lock timeout selection dialog');
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Auto-Lock Timeout'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<int>(
+                title: const Text('Always'),
+                subtitle: const Text('Require authentication every time'),
+                value: -1,
+                groupValue: themeService.settings.autoLockTimeout,
+                onChanged: (int? value) {
+                  if (value != null) {
+                    _logger.d('Auto-lock timeout selected: Always');
+                    themeService.updateAutoLockTimeout(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<int>(
+                title: const Text('Never'),
+                subtitle: const Text('Only authenticate once'),
+                value: 0,
+                groupValue: themeService.settings.autoLockTimeout,
+                onChanged: (int? value) {
+                  if (value != null) {
+                    _logger.d('Auto-lock timeout selected: Never');
+                    themeService.updateAutoLockTimeout(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<int>(
+                title: const Text('1 minute'),
+                value: 1,
+                groupValue: themeService.settings.autoLockTimeout,
+                onChanged: (int? value) {
+                  if (value != null) {
+                    _logger.d('Auto-lock timeout selected: $value minutes');
+                    themeService.updateAutoLockTimeout(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<int>(
+                title: const Text('5 minutes'),
+                value: 5,
+                groupValue: themeService.settings.autoLockTimeout,
+                onChanged: (int? value) {
+                  if (value != null) {
+                    _logger.d('Auto-lock timeout selected: $value minutes');
+                    themeService.updateAutoLockTimeout(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<int>(
+                title: const Text('15 minutes'),
+                value: 15,
+                groupValue: themeService.settings.autoLockTimeout,
+                onChanged: (int? value) {
+                  if (value != null) {
+                    _logger.d('Auto-lock timeout selected: $value minutes');
+                    themeService.updateAutoLockTimeout(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<int>(
+                title: const Text('30 minutes'),
+                value: 30,
+                groupValue: themeService.settings.autoLockTimeout,
+                onChanged: (int? value) {
+                  if (value != null) {
+                    _logger.d('Auto-lock timeout selected: $value minutes');
+                    themeService.updateAutoLockTimeout(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _logger.d('Auto-lock timeout selection dialog cancelled');
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _getThemeModeText(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.system:
+        return 'System default';
+      case ThemeMode.light:
+        return 'Light';
+      case ThemeMode.dark:
+        return 'Dark';
+    }
+  }
+
+  String _getThemeStyleText(ThemeStyleType style) {
+    switch (style) {
+      case ThemeStyleType.defaultStyle:
+        return 'Default';
+      case ThemeStyleType.forest:
+        return 'Forest';
+      case ThemeStyleType.sunset:
+        return 'Sunset';
+      case ThemeStyleType.violet:
+        return 'Violet';
+      case ThemeStyleType.custom:
+        return 'Custom';
+    }
+  }
+
+  String _getAutoLockText(int minutes) {
+    if (minutes == -1) {
+      return 'Always';
+    } else if (minutes == 0) {
+      return 'Never';
+    } else if (minutes == 1) {
+      return '1 minute';
+    } else {
+      return '$minutes minutes';
+    }
+  }
+
+  String _getPageTransitionText(PageTransitionType type) {
+    switch (type) {
+      case PageTransitionType.fade:
+        return 'Fade';
+      case PageTransitionType.rightToLeft:
+        return 'Slide Right to Left';
+      case PageTransitionType.leftToRight:
+        return 'Slide Left to Right';
+      case PageTransitionType.upToDown:
+        return 'Slide Up to Down';
+      case PageTransitionType.downToUp:
+        return 'Slide Down to Up';
+      case PageTransitionType.scale:
+        return 'Scale';
+      case PageTransitionType.rotate:
+        return 'Rotate';
+      case PageTransitionType.size:
+        return 'Size';
+      case PageTransitionType.rightToLeftWithFade:
+        return 'Slide Right to Left with Fade';
+      case PageTransitionType.leftToRightWithFade:
+        return 'Slide Left to Right with Fade';
+    }
+  }
+
+  String _getHomeViewTypeText(HomeViewType viewType) {
+    switch (viewType) {
+      case HomeViewType.authyStyle:
+        return 'Authy Style (Selection at top)';
+      case HomeViewType.grid:
+        return 'Grid View';
+      case HomeViewType.list:
+        return 'List View';
+    }
+  }
+
+  // Show home view type selection dialog
+  void _showHomeViewTypeDialog(BuildContext context, ThemeService themeService) {
+    _logger.d('Showing home view type selection dialog');
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Choose Home Screen View'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<HomeViewType>(
+                title: const Text('Authy Style'),
+                subtitle: const Text('Selected TOTP at top with grid below'),
+                value: HomeViewType.authyStyle,
+                groupValue: themeService.settings.homeViewType,
+                onChanged: (HomeViewType? value) {
+                  if (value != null) {
+                    _logger.d('Home view type selected: $value');
+                    themeService.updateHomeViewType(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<HomeViewType>(
+                title: const Text('Grid View'),
+                subtitle: const Text('All TOTPs displayed in a grid'),
+                value: HomeViewType.grid,
+                groupValue: themeService.settings.homeViewType,
+                onChanged: (HomeViewType? value) {
+                  if (value != null) {
+                    _logger.d('Home view type selected: $value');
+                    themeService.updateHomeViewType(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              RadioListTile<HomeViewType>(
+                title: const Text('List View'),
+                subtitle: const Text('Detailed list with more information'),
+                value: HomeViewType.list,
+                groupValue: themeService.settings.homeViewType,
+                onChanged: (HomeViewType? value) {
+                  if (value != null) {
+                    _logger.d('Home view type selected: $value');
+                    themeService.updateHomeViewType(value);
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _logger.d('Home view type selection dialog cancelled');
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Show password setup dialog
+  void _showPasswordSetupDialog(BuildContext context) {
+    _logger.d('Showing password setup dialog');
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Set Up Password'),
+          content: const Text(
+            'A password is required as a fallback when biometric authentication fails or is unavailable. Would you like to set up a password now?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _logger.d('Password setup cancelled');
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Later'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                _logger.d('Setting up password');
+                Navigator.pop(dialogContext);
+
+                // Store context references before async gap
+                final scaffoldMessengerState = ScaffoldMessenger.of(context);
+
+                // Use a post-frame callback to ensure the context is valid
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    _authService
+                        .showPasswordSetupScreen(context)
+                        .then((success) {
+                          if (success && mounted) {
+                            scaffoldMessengerState.showSnackBar(const SnackBar(content: Text('Password set successfully')));
+                          }
+                        })
+                        .catchError((error) {
+                          _logger.e('Error setting up password', error);
+                          if (mounted) {
+                            scaffoldMessengerState.showSnackBar(const SnackBar(content: Text('Error setting password')));
+                          }
+                        });
+                  }
+                });
+              },
+              child: const Text('Set Up Now'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Show password encryption info dialog
+  void _showPasswordEncryptionInfoDialog(BuildContext context, ThemeService themeService) {
+    _logger.d('Showing password encryption info dialog');
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Password Encryption'),
+          content: const Text(
+            'This feature adds a second layer of encryption to your OTP data using your password. '
+            'This provides additional security but requires your password to be set.\n\n'
+            'Note: Enabling this feature will re-encrypt all your OTP data. If you forget your password, '
+            'you will lose access to your OTP codes.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _logger.d('Password encryption cancelled');
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                _logger.d('Password encryption enabled');
+                Navigator.pop(dialogContext);
+                themeService.updatePasswordEncryption(true);
+
+                // Show a success message
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password encryption enabled')));
+              },
+              child: const Text('Enable'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Show password options dialog
+  Future<void> _showPasswordOptionsDialog(BuildContext context) async {
+    _logger.d('Showing password options dialog');
+
+    // Get password status first
+    final hasPassword = await _authService.isPasswordSet();
+    if (!mounted) return;
+
+    // Use a post-frame callback to ensure the context is valid
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // Then show dialog
+        showDialog(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: Text(hasPassword ? 'Password Options' : 'Set Up Password'),
+              content:
+                  hasPassword
+                      ? const Text('What would you like to do with your password?')
+                      : const Text('Setting up a password adds an extra layer of security to your app.'),
+              actions: [
+                if (hasPassword) ...[
+                  TextButton(
+                    onPressed: () async {
+                      _logger.d('Attempting to remove password');
+                      Navigator.pop(dialogContext);
+
+                      // Store context references before async gap
+                      final scaffoldMessengerState = ScaffoldMessenger.of(context);
+
+                      // Authenticate before allowing password removal
+                      final authenticated = await _authService.authenticateForPasswordChange(context);
+
+                      // Check if widget is still mounted
+                      if (!mounted) return;
+
+                      if (authenticated) {
+                        _logger.d('Authentication successful, showing remove password dialog');
+                        // Use a post-frame callback to ensure the context is valid
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            _showRemovePasswordConfirmDialog(context);
+                          }
+                        });
+                      } else {
+                        _logger.w('Authentication failed, password removal cancelled');
+                        scaffoldMessengerState.showSnackBar(const SnackBar(content: Text('Authentication failed. Password removal cancelled.')));
+                      }
+                    },
+                    child: const Text('Remove Password'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      _logger.d('Attempting to change password');
+                      Navigator.pop(dialogContext);
+
+                      // Store context references before async gap
+                      final scaffoldMessengerState = ScaffoldMessenger.of(context);
+
+                      // Authenticate before allowing password change
+                      final authenticated = await _authService.authenticateForPasswordChange(context);
+
+                      // Check if widget is still mounted
+                      if (!mounted) return;
+
+                      if (authenticated) {
+                        _logger.d('Authentication successful, showing password setup screen');
+
+                        // Use a post-frame callback to ensure the context is valid
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            // Get password encryption status inside the post-frame callback
+                            final themeService = Provider.of<ThemeService>(context, listen: false);
+                            final usePasswordEncryption = themeService.settings.usePasswordEncryption;
+
+                            _authService
+                                .showPasswordSetupScreen(context)
+                                .then((success) async {
+                                  if (success && mounted) {
+                                    // Show password changed success message
+                                    scaffoldMessengerState.showSnackBar(const SnackBar(content: Text('Password changed successfully')));
+
+                                    // If password encryption is enabled, show a message that data has been re-encrypted
+                                    if (usePasswordEncryption) {
+                                      // Add a slight delay to avoid overlapping snackbars
+                                      await Future.delayed(const Duration(seconds: 1));
+                                      if (mounted) {
+                                        scaffoldMessengerState.showSnackBar(
+                                          const SnackBar(content: Text('Your data has been re-encrypted with the new password')),
+                                        );
+                                      }
+                                    }
+                                  }
+                                })
+                                .catchError((error) {
+                                  _logger.e('Error setting up password', error);
+                                  if (mounted) {
+                                    scaffoldMessengerState.showSnackBar(const SnackBar(content: Text('Error changing password')));
+                                  }
+                                });
+                          }
+                        });
+                      } else {
+                        _logger.w('Authentication failed, password change cancelled');
+                        scaffoldMessengerState.showSnackBar(const SnackBar(content: Text('Authentication failed. Password change cancelled.')));
+                      }
+                    },
+                    child: const Text('Change Password'),
+                  ),
+                ] else ...[
+                  TextButton(
+                    onPressed: () {
+                      _logger.d('Setting up password');
+                      Navigator.pop(context);
+
+                      // Store context references before async gap
+                      final scaffoldMessengerState = ScaffoldMessenger.of(context);
+
+                      // Use a post-frame callback to ensure the context is valid
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          _authService
+                              .showPasswordSetupScreen(context)
+                              .then((success) {
+                                if (success && mounted) {
+                                  scaffoldMessengerState.showSnackBar(const SnackBar(content: Text('Password set successfully')));
+                                }
+                              })
+                              .catchError((error) {
+                                _logger.e('Error setting up password', error);
+                                if (mounted) {
+                                  scaffoldMessengerState.showSnackBar(const SnackBar(content: Text('Error setting password')));
+                                }
+                              });
+                        }
+                      });
+                    },
+                    child: const Text('Set Up Password'),
+                  ),
+                ],
+                TextButton(
+                  onPressed: () {
+                    _logger.d('Password options dialog cancelled');
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    });
+  }
+}
