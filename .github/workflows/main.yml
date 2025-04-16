@@ -102,14 +102,15 @@ jobs:
 
       - name: Install AppImageTool
         run: |
-          sudo apt-get update
-          sudo apt-get install -y appimagetool
+          wget https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
 
       - name: Package as AppImage
         run: |
           mkdir -p AppDir/usr/bin
           cp -r build/linux/x64/release/bundle/* AppDir/usr/bin
-          appimagetool AppDir OpenOTP.AppImage
+          chmod +x AppDir/usr/bin/OpenOTP
+          ./appimagetool-x86_64.AppImage AppDir OpenOTP.AppImage
 
       - name: Upload AppImage
         id: upload_linux
