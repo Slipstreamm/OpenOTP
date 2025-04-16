@@ -271,26 +271,36 @@ jobs:
       
 
   create-release:
-    name: Create GitHub Release
+    needs: [windows-build, linux-build, android-build, fetch-codemagic-artifacts]
     runs-on: ubuntu-latest
-    needs: [get-latest-tag, windows-build, linux-build, android-build, fetch-codemagic-artifacts]
     steps:
-      - name: Create GitHub Release and Upload Assets
-        uses: ncipollo/release-action@v1
+      - name: Download Windows Installer  
+        uses: actions/download-artifact@v4  
         with:
-          tag: ${{ needs.get-latest-tag.outputs.tag_name }}
-          name: "Release ${{ needs.get-latest-tag.outputs.tag_name }}"
-          body: |
-            ## Release Notes
-            - Windows Installer
-            - Linux AppImage
-            - Android APK
-            - iOS IPA
-          draft: false
-          prerelease: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+          name: OpenOTP-Windows-Installer
+
+      - name: Download Linux AppImage  
+        uses: actions/download-artifact@v4  
+        with:
+          name: OpenOTP-Linux-AppImage
+
+      - name: Download Android APK  
+        uses: actions/download-artifact@v4  
+        with:
+          name: OpenOTP-Android-APK
+
+      - name: Download iOS IPA  
+        uses: actions/download-artifact@v4  
+        with:
+          name: OpenOTP-iOS-IPA
+
+      - name: Create GitHub Release and Upload Assets  
+        uses: ncipollo/release-action@v1  
+        with:  
+          tag: ${{ needs.get-latest-tag.outputs.tag_name }}  
           artifacts: |
-            ${{ needs.windows-build.outputs.windows_artifact }}
-            ${{ needs.linux-build.outputs.linux_artifact }}
-            ${{ needs.android-build.outputs.android_artifact }}
-            ${{ needs.fetch-codemagic-artifacts.outputs.codemagic_artifact }}
+            OpenOTPInstaller.exe
+            OpenOTP.AppImage
+            build/app/outputs/flutter-apk/app-release.apk
+            OpenOTP.ipa  
+          token: ${{ secrets.GITHUB_TOKEN }}
