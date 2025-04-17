@@ -1,5 +1,5 @@
-[![Multi-Platform Build and Release Workflow](https://github.com/Slipstreamm/OpenOTP/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/Slipstreamm/OpenOTP/actions/workflows/main.yml)
 ![Logo](https://raw.githubusercontent.com/Slipstreamm/OpenOTP/refs/heads/master/assets/icons/horizontal_transparent_invert.png)
+[![Multi-Platform Build and Release Workflow](https://github.com/Slipstreamm/OpenOTP/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/Slipstreamm/OpenOTP/actions/workflows/main.yml)
 
 # OpenOTP
 
