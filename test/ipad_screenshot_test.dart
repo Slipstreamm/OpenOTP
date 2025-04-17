@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:golden_toolkit/golden_toolkit.dart';
-import 'package:openotp/screens/settings_screen.dart';
 import 'package:openotp/utils/page_transitions.dart';
 import 'package:provider/provider.dart';
 

@@ -35,6 +35,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Load settings from shared preferences
+  @override
   Future<SettingsModel> loadSettings() async {
     _logger.d('Loading app settings');
     try {
@@ -58,6 +59,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update theme mode
+  @override
   Future<SettingsModel> updateThemeMode(ThemeMode themeMode) async {
     _logger.d('Updating theme mode to: $themeMode');
     try {
@@ -73,6 +75,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update biometrics setting
+  @override
   Future<SettingsModel> updateBiometrics(bool useBiometrics) async {
     _logger.d('Updating biometrics setting to: $useBiometrics');
     try {
@@ -88,6 +91,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update auto-lock timeout
+  @override
   Future<SettingsModel> updateAutoLockTimeout(int minutes) async {
     _logger.d('Updating auto-lock timeout to: $minutes minutes');
     try {
@@ -103,6 +107,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update page transition type
+  @override
   Future<SettingsModel> updatePageTransitionType(PageTransitionType type) async {
     _logger.d('Updating page transition type to: $type');
     try {
@@ -118,6 +123,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update home view type (grid or list)
+  @override
   Future<SettingsModel> updateHomeViewType(HomeViewType viewType) async {
     _logger.d('Updating home view type to: $viewType');
     try {
@@ -133,6 +139,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update theme style type
+  @override
   Future<SettingsModel> updateThemeStyleType(ThemeStyleType styleType) async {
     _logger.d('Updating theme style type to: $styleType');
     try {
@@ -148,6 +155,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update custom light theme
+  @override
   Future<SettingsModel> updateCustomLightTheme(CustomThemeModel theme) async {
     _logger.d('Updating custom light theme');
     try {
@@ -166,6 +174,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update custom dark theme
+  @override
   Future<SettingsModel> updateCustomDarkTheme(CustomThemeModel theme) async {
     _logger.d('Updating custom dark theme');
     try {
@@ -184,6 +193,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update simple delete confirmation setting
+  @override
   Future<SettingsModel> updateSimpleDeleteConfirmation(bool useSimpleConfirmation) async {
     _logger.d('Updating simple delete confirmation setting to: $useSimpleConfirmation');
     try {
@@ -199,6 +209,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update device name for LAN sync
+  @override
   Future<SettingsModel> updateDeviceName(String deviceName) async {
     _logger.d('Updating device name to: $deviceName');
     try {
@@ -214,6 +225,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update sync PIN for LAN sync
+  @override
   Future<SettingsModel> updateSyncPin(String? syncPin) async {
     _logger.d('Updating sync PIN');
     try {
@@ -229,6 +241,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update server port for LAN sync
+  @override
   Future<SettingsModel> updateServerPort(int? serverPort) async {
     _logger.d('Updating server port to: $serverPort');
     try {
@@ -244,6 +257,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update client port for LAN sync
+  @override
   Future<SettingsModel> updateClientPort(int? clientPort) async {
     _logger.d('Updating client port to: $clientPort');
     try {
@@ -259,6 +273,7 @@ class SettingsService implements ISettingsService {
   }
 
   // Update password encryption setting
+  @override
   Future<SettingsModel> updatePasswordEncryption(bool usePasswordEncryption) async {
     _logger.d('Updating password encryption setting to: $usePasswordEncryption');
     try {
