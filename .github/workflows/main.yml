@@ -56,7 +56,7 @@ jobs:
           echo '; Inno Setup script to package the Flutter app' > package.iss
           echo '[Setup]' >> package.iss
           echo 'AppName=OpenOTP' >> package.iss
-          echo "AppVersion=${{ needs.get-latest-tag.outputs.tag_name }}" >> package.iss
+          echo "AppVersion=${{ needs.get-latest-tag.outputs.latest_tag }}" >> package.iss
           echo 'DefaultDirName={pf}\OpenOTP' >> package.iss
           echo 'DefaultGroupName=OpenOTP' >> package.iss
           echo 'OutputBaseFilename=OpenOTPInstaller' >> package.iss
@@ -188,7 +188,7 @@ jobs:
               "workflowId": "67ff48a213eb8825035b25de",
               "branch": "master",
               "environment": {
-                "TAG_NAME": "${{ needs.get-latest-tag.outputs.tag_name }}"
+                "TAG_NAME": "${{ needs.get-latest-tag.outputs.latest_tag }}"
               }
             }' \
             https://api.codemagic.io/builds)
