@@ -5,6 +5,8 @@ import 'package:openotp/services/crypto_service.dart';
 import 'package:openotp/services/logger_service.dart';
 import 'package:openotp/services/secure_storage_service.dart';
 import 'package:openotp/services/settings_service.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Service for exporting OTP entries and settings to a file
 class ExportService {
@@ -104,10 +106,29 @@ class ExportService {
     _logger.d('Saving export data to file');
 
     try {
+      final fileName = 'openotp_export_${DateTime.now().millisecondsSinceEpoch}${encrypted ? '_encrypted' : ''}.json';
+
+      // Use platform-specific approach
+      if (Platform.isAndroid || Platform.isIOS) {
+        return await _saveToFileMobile(data, fileName);
+      } else {
+        return await _saveToFileDesktop(data, fileName);
+      }
+    } catch (e, stackTrace) {
+      _logger.e('Error saving export to file', e, stackTrace);
+      return false;
+    }
+  }
+
+  /// Save the export data to a file on desktop platforms
+  Future<bool> _saveToFileDesktop(String data, String fileName) async {
+    _logger.d('Saving export data to file on desktop');
+
+    try {
       // Get save location from user
       String? outputFile = await FilePicker.platform.saveFile(
         dialogTitle: 'Save OTP Export',
-        fileName: 'openotp_export_${DateTime.now().millisecondsSinceEpoch}${encrypted ? '_encrypted' : ''}.json',
+        fileName: fileName,
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
@@ -129,7 +150,35 @@ class ExportService {
       _logger.i('Export saved to: $outputFile');
       return true;
     } catch (e, stackTrace) {
-      _logger.e('Error saving export to file', e, stackTrace);
+      _logger.e('Error saving export to file on desktop', e, stackTrace);
+      return false;
+    }
+  }
+
+  /// Save the export data to a file on mobile platforms
+  Future<bool> _saveToFileMobile(String data, String fileName) async {
+    _logger.d('Saving export data to file on mobile');
+
+    try {
+      // Get the temporary directory path
+      final directory = await getTemporaryDirectory();
+      final filePath = '${directory.path}/$fileName';
+
+      // Write to temporary file
+      final file = File(filePath);
+      await file.writeAsString(data);
+
+      _logger.i('Export saved to temporary file: $filePath');
+
+      // Share the file
+      final result = await Share.shareXFiles([XFile(filePath)], subject: 'OpenOTP Export', text: 'Your OpenOTP export file');
+
+      _logger.i('Share result: ${result.status}');
+
+      // Consider the export successful if the share dialog was shown
+      return result.status == ShareResultStatus.success || result.status == ShareResultStatus.dismissed;
+    } catch (e, stackTrace) {
+      _logger.e('Error saving export to file on mobile', e, stackTrace);
       return false;
     }
   }
