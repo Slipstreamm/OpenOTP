@@ -11,6 +11,7 @@ class OtpEntry {
   final String algorithm;
   final OtpType type; // Type of OTP (TOTP or HOTP)
   final int counter; // Counter for HOTP
+  final String? iconSearchTerm; // Custom search term for icon lookup
 
   OtpEntry({
     required this.id,
@@ -22,11 +23,12 @@ class OtpEntry {
     this.algorithm = 'SHA1',
     this.type = OtpType.totp,
     this.counter = 0,
+    this.iconSearchTerm,
   });
 
   // Convert OtpEntry to JSON
   Map<String, dynamic> toJson() {
-    return {
+    final json = {
       'id': id,
       'name': name,
       'secret': secret,
@@ -37,6 +39,13 @@ class OtpEntry {
       'type': type.index,
       'counter': counter,
     };
+
+    // Only add iconSearchTerm if it's not null
+    if (iconSearchTerm != null) {
+      json['iconSearchTerm'] = iconSearchTerm as String;
+    }
+
+    return json;
   }
 
   // Create OtpEntry from JSON
@@ -57,11 +66,23 @@ class OtpEntry {
       algorithm: json['algorithm'] ?? 'SHA1',
       type: type,
       counter: json['counter'] ?? 0,
+      iconSearchTerm: json['iconSearchTerm'],
     );
   }
 
   // Create a copy with updated fields
-  OtpEntry copyWith({String? id, String? name, String? secret, String? issuer, int? digits, int? period, String? algorithm, OtpType? type, int? counter}) {
+  OtpEntry copyWith({
+    String? id,
+    String? name,
+    String? secret,
+    String? issuer,
+    int? digits,
+    int? period,
+    String? algorithm,
+    OtpType? type,
+    int? counter,
+    Object? iconSearchTerm = const Object(),
+  }) {
     return OtpEntry(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -72,6 +93,8 @@ class OtpEntry {
       algorithm: algorithm ?? this.algorithm,
       type: type ?? this.type,
       counter: counter ?? this.counter,
+      // Special handling for iconSearchTerm to allow setting it to null
+      iconSearchTerm: iconSearchTerm == const Object() ? this.iconSearchTerm : iconSearchTerm as String?,
     );
   }
 }

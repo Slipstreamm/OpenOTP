@@ -546,6 +546,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // For icon preview
     String? selectedIconPath;
     String searchTerm = iconSearchController.text;
+    bool isSearching = false;
 
     return showDialog<bool>(
       context: context,
@@ -554,14 +555,30 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, setState) {
             // Function to search for icons
             Future<void> searchIcons() async {
+              if (searchTerm.isEmpty) return;
+
+              setState(() {
+                isSearching = true;
+              });
+
               _logger.d('Searching for icons with term: $searchTerm');
               final iconService = Provider.of<IconService>(context, listen: false);
+
+              // Clear the cache for this search term to ensure fresh results
+              final cacheKey = '${searchTerm.toLowerCase()}:${searchTerm.toLowerCase()}';
+              iconService.clearIconCache(cacheKey);
+
               selectedIconPath = await iconService.findIconPath(searchTerm, searchTerm);
-              setState(() {}); // Update the UI with the new icon
+
+              if (context.mounted) {
+                setState(() {
+                  isSearching = false;
+                });
+              }
             }
 
             // Initial icon search
-            if (selectedIconPath == null) {
+            if (selectedIconPath == null && !isSearching) {
               searchIcons();
             }
 
@@ -581,7 +598,34 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 24),
 
                     // Icon search section
-                    const Text('Icon Search', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Icon Search', style: TextStyle(fontWeight: FontWeight.bold)),
+                        // Show reset button if entry has a custom icon search term
+                        if (entry.iconSearchTerm != null)
+                          TextButton.icon(
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('Reset to Default', style: TextStyle(fontSize: 12)),
+                            onPressed: () {
+                              _logger.d('DEBUG - Reset to Default button clicked');
+                              _logger.d('DEBUG - Before reset - searchTerm: "$searchTerm", iconSearchController: "${iconSearchController.text}"');
+
+                              setState(() {
+                                // Reset to the issuer/name
+                                iconSearchController.text = entry.issuer.isNotEmpty ? entry.issuer : entry.name;
+                                searchTerm = iconSearchController.text;
+                                selectedIconPath = null;
+                              });
+
+                              _logger.d('DEBUG - After reset - searchTerm: "$searchTerm", iconSearchController: "${iconSearchController.text}"');
+
+                              // Search with the default term
+                              searchIcons();
+                            },
+                          ),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -595,14 +639,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             onChanged: (value) {
                               searchTerm = value;
+                              // Clear selected icon path when search term changes
+                              if (selectedIconPath != null) {
+                                setState(() {
+                                  selectedIconPath = null;
+                                });
+                              }
                             },
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.search),
-                          onPressed: () {
-                            searchIcons();
-                          },
+                          icon:
+                              isSearching ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.search),
+                          onPressed: isSearching ? null : () => searchIcons(),
                           tooltip: 'Search for icon',
                         ),
                       ],
@@ -620,15 +669,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             height: 64,
                             decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(8)),
                             child:
-                                selectedIconPath != null
+                                isSearching
+                                    ? const Center(child: CircularProgressIndicator())
+                                    : selectedIconPath != null
                                     ? Padding(
                                       padding: const EdgeInsets.all(8.0),
                                       child: Provider.of<IconService>(
                                         context,
                                         listen: false,
-                                      ).getIconWidget(issuerController.text, nameController.text, size: 48),
+                                      ).getIconWidget(issuerController.text, nameController.text, size: 48, iconSearchTerm: searchTerm),
                                     )
-                                    : _buildFallbackIconPreview(issuerController.text, nameController.text),
+                                    : _buildFallbackIconPreview(searchTerm, nameController.text),
                           ),
                         ],
                       ),
@@ -651,15 +702,70 @@ class _HomeScreenState extends State<HomeScreen> {
                       return;
                     }
 
-                    // Create updated entry
-                    final updatedEntry = entry.copyWith(name: nameController.text.trim(), issuer: issuerController.text.trim());
+                    // Create updated entry with the same values but potentially new icon
+                    // Determine if we need to set or clear a custom icon search term
+                    String? newIconSearchTerm;
+
+                    // Check if the search term matches the issuer or name (case insensitive)
+                    final issuerLower = issuerController.text.trim().toLowerCase();
+                    final nameLower = nameController.text.trim().toLowerCase();
+                    final searchTermLower = searchTerm.toLowerCase();
+
+                    _logger.d('DEBUG - Current entry iconSearchTerm: ${entry.iconSearchTerm}');
+                    _logger.d('DEBUG - Search term: "$searchTerm", issuer: "${issuerController.text}", name: "${nameController.text}"');
+                    _logger.d('DEBUG - Lowercase comparison - searchTerm: "$searchTermLower", issuer: "$issuerLower", name: "$nameLower"');
+
+                    // If search term matches issuer or name, clear the custom icon search term
+                    if (searchTermLower == issuerLower || searchTermLower == nameLower) {
+                      // Explicitly set to null to clear any existing custom icon search term
+                      newIconSearchTerm = null;
+                      _logger.i('Clearing custom icon search term - using default icon');
+                    }
+                    // Otherwise, if search term is not empty and different from issuer/name, set it as custom
+                    else if (searchTerm.isNotEmpty) {
+                      newIconSearchTerm = searchTerm;
+                      _logger.i('Setting custom icon search term: $searchTerm');
+                    }
+
+                    _logger.d('DEBUG - New iconSearchTerm value: $newIconSearchTerm');
+
+                    // Create the updated entry with explicit null for iconSearchTerm if needed
+                    OtpEntry updatedEntry;
+                    if (newIconSearchTerm == null) {
+                      // Explicitly pass null to clear the iconSearchTerm
+                      updatedEntry = entry.copyWith(name: nameController.text.trim(), issuer: issuerController.text.trim(), iconSearchTerm: null);
+                      _logger.d('DEBUG - Explicitly setting iconSearchTerm to null');
+                    } else {
+                      updatedEntry = entry.copyWith(name: nameController.text.trim(), issuer: issuerController.text.trim(), iconSearchTerm: newIconSearchTerm);
+                    }
 
                     try {
+                      _logger.i('Saving updated OTP entry: ${updatedEntry.name} (${updatedEntry.issuer})');
+                      _logger.d('DEBUG - Updated entry iconSearchTerm: ${updatedEntry.iconSearchTerm}');
+
+                      // Get the icon service before the async gap
+                      final iconService = Provider.of<IconService>(context, listen: false);
+
                       // Save the updated entry
                       await _storageService.updateOtpEntry(updatedEntry);
 
-                      // Clear icon cache for this entry
+                      // Double-check what was saved
+                      final savedEntries = await _storageService.getOtpEntries();
+                      final savedEntry = savedEntries.firstWhere((e) => e.id == updatedEntry.id);
+                      _logger.d('DEBUG - Saved entry iconSearchTerm: ${savedEntry.iconSearchTerm}');
+
+                      // Clear icon cache for this entry and the search term
                       _iconCache.remove(entry.id);
+
+                      // Also clear the icon service cache for this entry
+                      final issuer = updatedEntry.issuer.toLowerCase();
+                      final name = updatedEntry.name.toLowerCase();
+                      iconService.clearIconCache('$issuer:$name');
+
+                      // Log that we're using a custom icon search term if one is set
+                      if (updatedEntry.iconSearchTerm != null) {
+                        _logger.i('Entry will use custom icon search term: ${updatedEntry.iconSearchTerm}');
+                      }
 
                       if (context.mounted) {
                         Navigator.of(context).pop(true);
@@ -683,7 +789,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Build a fallback icon preview for the edit dialog
   Widget _buildFallbackIconPreview(String issuer, String name) {
-    final String firstLetter = (issuer.isNotEmpty ? issuer : name).substring(0, 1).toUpperCase();
+    // Handle empty strings to prevent RangeError
+    final String displayText = (issuer.isNotEmpty ? issuer : name);
+    final String firstLetter = displayText.isNotEmpty ? displayText.substring(0, 1).toUpperCase() : '?';
+
     return Container(
       decoration: BoxDecoration(color: Theme.of(context).primaryColor, borderRadius: BorderRadius.circular(8)),
       child: Center(child: Text(firstLetter, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24))),
@@ -945,6 +1054,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _logger.d('Building provider icon for ${entry.name} (not cached)');
 
+    // Check if we have a custom icon search term
+    if (entry.iconSearchTerm != null && entry.iconSearchTerm!.isNotEmpty) {
+      _logger.d('Using custom icon search term: ${entry.iconSearchTerm}');
+    }
+
     // Get icon widget from the icon service (it will handle fallbacks internally)
     final iconWidget = _iconService.getIconWidget(
       entry.issuer,
@@ -954,6 +1068,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Theme.of(context).brightness == Brightness.dark
               ? const Color(0xFFFFFFFF) // White for dark mode
               : null, // Original colors for light mode
+      iconSearchTerm: entry.iconSearchTerm,
     );
 
     // Create the container with appropriate styling

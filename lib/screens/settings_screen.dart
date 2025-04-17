@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:openotp/widgets/custom_app_bar.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/settings_model.dart';
 import '../services/logger_service.dart';
 import '../services/theme_service.dart';
@@ -436,7 +438,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 context: context,
                 title: 'About',
                 icon: Icons.info_outline,
-                children: [ListTile(title: const Text('Version'), subtitle: const Text('1.0.0'), leading: const Icon(Icons.info_outline))],
+                children: [
+                  const ListTile(title: Text('OpenOTP'), subtitle: Text('A secure, open-source OTP authenticator app'), leading: Icon(Icons.app_shortcut)),
+                  FutureBuilder<String>(
+                    future: _getAppVersion(),
+                    builder: (context, snapshot) {
+                      return ListTile(
+                        title: const Text('Version'),
+                        subtitle: Text(
+                          snapshot.connectionState == ConnectionState.waiting
+                              ? 'Loading...'
+                              : snapshot.hasError
+                              ? 'Error loading version'
+                              : snapshot.data ?? 'Unknown',
+                        ),
+                        leading: const Icon(Icons.info_outline),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    title: const Text('Developer'),
+                    subtitle: const Text('Hunter Lee / Slipstreamm'),
+                    leading: const Icon(Icons.person),
+                    onTap: () => _launchUrl('https://github.com/Slipstreamm'),
+                  ),
+                  ListTile(
+                    title: const Text('GitHub Repository'),
+                    subtitle: const Text('View source code on GitHub'),
+                    leading: const Icon(Icons.code),
+                    onTap: () => _launchUrl('https://github.com/Slipstreamm/OpenOTP'),
+                  ),
+                  ListTile(
+                    title: const Text('Website'),
+                    subtitle: const Text('Visit our website'),
+                    leading: const Icon(Icons.language),
+                    onTap: () => _launchUrl('https://openotp.lol'),
+                  ),
+                  ListTile(
+                    title: const Text('Privacy Policy'),
+                    subtitle: const Text('View our privacy policy'),
+                    leading: const Icon(Icons.privacy_tip),
+                    onTap: () => _launchUrl('https://openotp.lol/privacy'),
+                  ),
+                  ListTile(
+                    title: const Text('Help & Support'),
+                    subtitle: const Text('Get help with using the app'),
+                    leading: const Icon(Icons.help),
+                    onTap: () => _launchUrl('https://openotp.lol/support'),
+                  ),
+                  ListTile(
+                    title: const Text('Open Source Licenses'),
+                    subtitle: const Text('View licenses for third-party libraries'),
+                    leading: const Icon(Icons.source),
+                    onTap: () => _showLicensesPage(context),
+                  ),
+                ],
               ),
             ],
           );
@@ -958,6 +1014,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } else {
       return '$minutes minutes';
     }
+  }
+
+  // Get app version dynamically using PackageInfo
+  Future<String> _getAppVersion() async {
+    _logger.d('Getting app version');
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final version = '${info.version}+${info.buildNumber}';
+      _logger.d('App version: $version');
+      return version;
+    } catch (e) {
+      _logger.e('Error getting app version', e);
+      return 'Error';
+    }
+  }
+
+  // Launch URL in browser
+  Future<void> _launchUrl(String urlString) async {
+    _logger.d('Launching URL: $urlString');
+    final Uri url = Uri.parse(urlString);
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+        _logger.i('Successfully launched URL: $urlString');
+      } else {
+        _logger.w('Could not launch URL: $urlString');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open $urlString')));
+        }
+      }
+    } catch (e) {
+      _logger.e('Error launching URL: $urlString', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error opening link: ${e.toString()}')));
+      }
+    }
+  }
+
+  // Show licenses page
+  void _showLicensesPage(BuildContext context) {
+    _logger.d('Showing licenses page');
+    showLicensePage(
+      context: context,
+      applicationName: 'OpenOTP',
+      applicationVersion: 'v1.0.3+1', // Hard-coded version for now
+      applicationIcon: const Icon(Icons.app_shortcut, size: 48),
+      applicationLegalese: '© ${DateTime.now().year} Hunter Lee',
+    );
   }
 
   String _getPageTransitionText(PageTransitionType type) {

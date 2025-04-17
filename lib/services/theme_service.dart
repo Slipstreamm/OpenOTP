@@ -25,6 +25,7 @@ class ThemeService with ChangeNotifier {
     useMaterial3: false,
     brightness: Brightness.dark,
     scaffoldBackgroundColor: const Color(0xFF121212), // Background
+    cardColor: const Color(0xFF121212),
     primaryColor: const Color(0xFF0066CC), // Primary
     appBarTheme: const AppBarTheme(
       backgroundColor: Color(0xFF0066CC), // Primary
@@ -63,6 +64,7 @@ class ThemeService with ChangeNotifier {
     useMaterial3: false,
     brightness: Brightness.light,
     scaffoldBackgroundColor: const Color(0xFFF9F9F9), // Background
+    cardColor: const Color(0xFFFFFFFF),
     primaryColor: const Color(0xFF0066CC), // Primary
     appBarTheme: const AppBarTheme(
       backgroundColor: Color(0xFF0066CC), // Primary
@@ -105,6 +107,7 @@ class ThemeService with ChangeNotifier {
     useMaterial3: false,
     brightness: Brightness.light,
     scaffoldBackgroundColor: const Color(0xFFE8F5E9), // Light green background
+    cardColor: const Color(0xFFFFFFFF),
     primaryColor: const Color(0xFF388E3C), // Green primary
     appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF388E3C), foregroundColor: Colors.white, elevation: 4.0),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: Color(0xFF388E3C), foregroundColor: Colors.white),
@@ -140,6 +143,7 @@ class ThemeService with ChangeNotifier {
     useMaterial3: false,
     brightness: Brightness.dark,
     scaffoldBackgroundColor: const Color(0xFF121212), // Standard dark background
+    cardColor: const Color(0xFF121212),
     primaryColor: const Color(0xFF2E7D32), // Forest green
     appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF2E7D32), foregroundColor: Colors.white, elevation: 4.0),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: Color(0xFF2E7D32), foregroundColor: Colors.white),
@@ -175,6 +179,7 @@ class ThemeService with ChangeNotifier {
     useMaterial3: false,
     brightness: Brightness.light,
     scaffoldBackgroundColor: const Color(0xFFFFF3E0), // Soft warm background
+    cardColor: const Color(0xFFFFFFFF),
     primaryColor: const Color(0xFFF57C00), // Warm orange
     appBarTheme: const AppBarTheme(backgroundColor: Color(0xFFF57C00), foregroundColor: Colors.white, elevation: 4.0),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: Color(0xFFF57C00), foregroundColor: Colors.white),
@@ -210,6 +215,7 @@ class ThemeService with ChangeNotifier {
     useMaterial3: false,
     brightness: Brightness.dark,
     scaffoldBackgroundColor: const Color(0xFF121212), // Standard dark background
+    cardColor: const Color(0xFF121212),
     primaryColor: const Color(0xFFD84315), // Rich orange
     appBarTheme: const AppBarTheme(backgroundColor: Color(0xFFD84315), foregroundColor: Colors.white, elevation: 4.0),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: Color(0xFFD84315), foregroundColor: Colors.white),
@@ -245,6 +251,7 @@ class ThemeService with ChangeNotifier {
     useMaterial3: false,
     brightness: Brightness.light,
     scaffoldBackgroundColor: const Color(0xFFEDE7F6), // Light lavender background
+    cardColor: const Color(0xFFFFFFFF),
     primaryColor: const Color(0xFF7E57C2), // Violet primary
     appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF7E57C2), foregroundColor: Colors.white, elevation: 4.0),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: Color(0xFF7E57C2), foregroundColor: Colors.white),
@@ -280,6 +287,7 @@ class ThemeService with ChangeNotifier {
     useMaterial3: false,
     brightness: Brightness.dark,
     scaffoldBackgroundColor: const Color(0xFF121212), // Standard dark background
+    cardColor: const Color(0xFF121212),
     primaryColor: const Color(0xFF6A1B9A), // Deep violet
     appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF6A1B9A), foregroundColor: Colors.white, elevation: 4.0),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: Color(0xFF6A1B9A), foregroundColor: Colors.white),
@@ -584,6 +592,7 @@ class ThemeService with ChangeNotifier {
       useMaterial3: false,
       brightness: brightness,
       scaffoldBackgroundColor: customTheme.scaffoldBackgroundColor,
+      cardColor: customTheme.cardColor,
       primaryColor: customTheme.primaryColor,
 
       // App bar theme

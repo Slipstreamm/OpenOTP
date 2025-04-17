@@ -11,6 +11,20 @@ class IconService {
   // Cache for icons to avoid repeated file system checks
   final Map<String, String?> _iconCache = {};
 
+  // Clear a specific entry from the icon cache
+  void clearIconCache(String cacheKey) {
+    if (_iconCache.containsKey(cacheKey)) {
+      _logger.d('Clearing icon cache for key: $cacheKey');
+      _iconCache.remove(cacheKey);
+    }
+  }
+
+  // Clear the entire icon cache
+  void clearAllIconCache() {
+    _logger.d('Clearing all icon cache entries');
+    _iconCache.clear();
+  }
+
   // Find the icon path for a given issuer or name
   Future<String?> findIconPath(String issuer, String name) async {
     // Convert to lowercase for case-insensitive matching
@@ -464,14 +478,20 @@ class IconService {
   }
 
   // Get an SVG widget for the given issuer and name
-  Widget getIconWidget(String issuer, String name, {double size = 24.0, Color? color}) {
+  // If iconSearchTerm is provided, it will be used instead of issuer/name
+  Widget getIconWidget(String issuer, String name, {double size = 24.0, Color? color, String? iconSearchTerm}) {
     // Use a FutureBuilder to handle the async path lookup
     return FutureBuilder<String?>(
-      // Find the icon path asynchronously
-      future: findIconPath(issuer, name),
+      // Find the icon path asynchronously, using iconSearchTerm if available
+      future: iconSearchTerm != null && iconSearchTerm.isNotEmpty ? findIconPath(iconSearchTerm, iconSearchTerm) : findIconPath(issuer, name),
       builder: (BuildContext context, AsyncSnapshot<String?> snapshot) {
         // Create the fallback widget
-        final fallbackWidget = _buildFallbackIcon(issuer, name, size: size, theme: Theme.of(context));
+        final fallbackWidget = _buildFallbackIcon(
+          iconSearchTerm != null && iconSearchTerm.isNotEmpty ? iconSearchTerm : issuer,
+          name,
+          size: size,
+          theme: Theme.of(context),
+        );
 
         // If we have a valid path, try to load the SVG
         if (snapshot.connectionState == ConnectionState.done && snapshot.hasData && snapshot.data != null) {
