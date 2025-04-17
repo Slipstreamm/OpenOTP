@@ -56,7 +56,7 @@ A feature-rich, secure OTP (One-Time Password) generator app built with Flutter.
 - Flutter SDK (version 3.7.2 or higher)
 - Dart SDK (version 3.0.0 or higher)
 
-### Installation
+### Installation from Source
 
 1. Clone the repository
 2. Install dependencies:
@@ -70,6 +70,15 @@ A feature-rich, secure OTP (One-Time Password) generator app built with Flutter.
    ```bash
    flutter run
    ```
+
+### Installation from Releases
+
+Prebuilt binaries are available for all major platforms. Visit the [Releases page](https://github.com/Slipstreamm/OpenOTP/releases) to download:
+
+- **Windows**: Installer (`.exe`)
+- **Linux**: AppImage (`.AppImage`)
+- **Android**: APK (`.apk`)
+- **iOS**: Ad-hoc IPA (`.ipa` — sideload required)
 
 ## Usage
 
@@ -139,7 +148,7 @@ This project is open source and available under the GNU General Public License v
 
 ## Support
 
-If you find this project useful, consider supporting its development through [this link](https://slipstreamm.github.io/donate). Your support is greatly appreciated!
+If you find this project useful, consider supporting its development through [this link](https://slipstreamm.github.io/donate). Your support is greatly appreciated!  
 I only accept cryptocurrencies donations at the moment.
 
 ## Icon Credits
