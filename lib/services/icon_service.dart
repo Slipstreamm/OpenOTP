@@ -58,6 +58,7 @@ class IconService {
     'co',
     'io',
     'ai',
+    'asset', // app tlds changed to asset to comply with Apple's guidelines
     'app',
     'dev',
     'tech',

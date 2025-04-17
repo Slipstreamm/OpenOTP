@@ -170,7 +170,7 @@ flutter:
     - assets/vectors/au.dk/
     - assets/vectors/auth0.com/
     - assets/vectors/authelia.com/
-    - assets/vectors/authpass.app/
+    - assets/vectors/authpass.asset/
     - assets/vectors/autodesk.com/
     - assets/vectors/automate.io/
     - assets/vectors/autotask.net/
@@ -246,7 +246,7 @@ flutter:
     - assets/vectors/capcom.com/
     - assets/vectors/carrd.co/
     - assets/vectors/carta.com/
-    - assets/vectors/cash.app/
+    - assets/vectors/cash.asset/
     - assets/vectors/cdnsun.com/
     - assets/vectors/celsius.network/
     - assets/vectors/cex.io/
@@ -303,7 +303,7 @@ flutter:
     - assets/vectors/ctemplar.com/
     - assets/vectors/currenxie.com/
     - assets/vectors/curseforge.com/
-    - assets/vectors/curve.app/
+    - assets/vectors/curve.asset/
     - assets/vectors/cynet.com/
     - assets/vectors/dashlane.com/
     - assets/vectors/datev.de/
@@ -707,7 +707,7 @@ flutter:
     - assets/vectors/paloaltonetworks.com/
     - assets/vectors/panic.com/
     - assets/vectors/parqet.com/
-    - assets/vectors/parsec.app/
+    - assets/vectors/parsec.asset/
     - assets/vectors/particle.io/
     - assets/vectors/passiv.com/
     - assets/vectors/passthepopcorn.me/
@@ -881,7 +881,7 @@ flutter:
     - assets/vectors/smtp2go.com/
     - assets/vectors/snapchat.com/
     - assets/vectors/snapshooter.com/
-    - assets/vectors/socialsync.app/
+    - assets/vectors/socialsync.asset/
     - assets/vectors/sofi.com/
     - assets/vectors/sogo.nu/
     - assets/vectors/solarwinds.com/
@@ -1059,7 +1059,7 @@ flutter:
     - assets/vectors/workato.com/
     - assets/vectors/workflowy.com/
     - assets/vectors/world4you.com/
-    - assets/vectors/wormhole.app/
+    - assets/vectors/wormhole.asset/
     - assets/vectors/wpengine.com/
     - assets/vectors/wrike.com/
     - assets/vectors/wykop.pl/
@@ -1078,7 +1078,7 @@ flutter:
     - assets/vectors/yello.de/
     - assets/vectors/yobit.net/
     - assets/vectors/youneedabudget.com/
-    - assets/vectors/youtrack.app/
+    - assets/vectors/youtrack.asset/
     - assets/vectors/youtube.com/
     - assets/vectors/zapier.com/
     - assets/vectors/zendesk.com/
