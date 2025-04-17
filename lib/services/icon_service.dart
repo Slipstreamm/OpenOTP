@@ -1,6 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart'; // Keep this for rootBundle
 import 'package:flutter_svg/flutter_svg.dart';
 import 'logger_service.dart';
 
@@ -348,8 +349,7 @@ class IconService {
   // Cache for asset existence checks to avoid repeated checks
   final Map<String, bool> _assetExistsCache = {};
 
-  // Check if an asset exists by attempting to load it as a ByteData using rootBundle
-  // This is the most reliable approach for checking asset existence
+  // Check if an asset exists using a more reliable method that works across all platforms
   Future<bool> _checkAssetExists(String assetPath) async {
     // Check cache first for better performance
     if (_assetExistsCache.containsKey(assetPath)) {
@@ -358,77 +358,103 @@ class IconService {
 
     _logger.d('Checking if asset exists: $assetPath');
     try {
-      // Use rootBundle to load the asset as a ByteData
-      // This directly accesses the app's asset bundle
-      final ByteData data = await rootBundle.load(assetPath);
+      // First approach: Use the preloaded asset manifest if available
+      if (_assetManifestCache != null) {
+        final exists = _assetManifestCache!.containsKey(assetPath);
+        if (exists) {
+          _logger.d('Asset found in preloaded manifest: $assetPath');
+          _assetExistsCache[assetPath] = true;
+          return true;
+        }
+      } else {
+        // If manifest not preloaded, try to load it now
+        try {
+          await _preloadAssetManifest();
+          if (_assetManifestCache != null && _assetManifestCache!.containsKey(assetPath)) {
+            _logger.d('Asset found in just-loaded manifest: $assetPath');
+            _assetExistsCache[assetPath] = true;
+            return true;
+          }
+        } catch (manifestError) {
+          _logger.w('Error loading manifest for asset check: $assetPath', manifestError);
+          // Continue to the next approach if manifest check fails
+        }
+      }
 
-      // If we get here, the asset exists
-      _logger.d('Asset exists: $assetPath (${data.lengthInBytes} bytes)');
-      _assetExistsCache[assetPath] = true;
-      return true;
+      // Second approach: Try to load the asset directly
+      // This is a fallback in case the manifest approach doesn't work
+      try {
+        await rootBundle.load(assetPath);
+        _logger.d('Asset exists (direct load): $assetPath');
+        _assetExistsCache[assetPath] = true;
+        return true;
+      } catch (loadError) {
+        _logger.d('Asset does not exist (direct load): $assetPath');
+        _assetExistsCache[assetPath] = false;
+        return false;
+      }
     } catch (e) {
-      // If we get an error, the asset doesn't exist or couldn't be loaded
-      _logger.d('Asset does not exist: $assetPath - ${e.toString()}');
+      // If we get an error during any check, log it and return false
+      _logger.e('Error checking if asset exists: $assetPath', e);
       _assetExistsCache[assetPath] = false;
       return false;
     }
   }
 
-  // Safely load an SVG asset with proper error handling using rootBundle
+  // Load SVG data directly from the asset bundle
+  Future<String?> _loadSvgStringFromAsset(String assetPath) async {
+    _logger.d('Loading SVG string from asset: $assetPath');
+    try {
+      // Check if the asset exists in the manifest
+      bool exists = await _checkAssetExists(assetPath);
+      if (!exists) {
+        _logger.w('Asset not found in manifest: $assetPath');
+        return null;
+      }
+
+      // Load the SVG file as a string
+      final String svgString = await rootBundle.loadString(assetPath);
+      return svgString;
+    } catch (e, stackTrace) {
+      _logger.e('Error loading SVG string from asset: $assetPath', e, stackTrace);
+      return null;
+    }
+  }
+
+  // Safely load an SVG asset with proper error handling
   Widget _safeLoadSvgAsset(String assetPath, {double size = 24.0, Color? color, required Widget fallbackWidget}) {
     _logger.d('Safely loading SVG asset: $assetPath');
 
-    // Wrap in a try-catch block to handle any exceptions during asset loading
-    try {
-      // Use a FutureBuilder to handle the asynchronous loading of the SVG asset
-      // This provides better error handling for asset loading failures
-      return FutureBuilder<Widget>(
-        future: Future<Widget>(() async {
+    // Use a FutureBuilder to handle the asynchronous loading of the SVG asset
+    return FutureBuilder<String?>(
+      future: _loadSvgStringFromAsset(assetPath),
+      builder: (context, snapshot) {
+        // If we successfully loaded the SVG string
+        if (snapshot.connectionState == ConnectionState.done && snapshot.hasData && snapshot.data != null) {
           try {
-            // First verify the asset exists using rootBundle directly
-            await rootBundle.load(assetPath);
-
-            // Attempt to create the SVG picture using SvgPicture.asset
-            // SvgPicture.asset internally uses rootBundle to load the asset
-            return SvgPicture.asset(
-              assetPath,
-              width: size,
-              height: size,
-              colorFilter: color != null ? ColorFilter.mode(color, BlendMode.srcIn) : null,
-              placeholderBuilder: (BuildContext context) {
-                // This is called when the asset exists but fails to parse as valid SVG
-                _logger.w('SVG failed to load via placeholderBuilder: $assetPath');
-                return fallbackWidget;
-              },
-            );
+            // Create SVG from the string data
+            return SvgPicture.string(snapshot.data!, width: size, height: size, colorFilter: color != null ? ColorFilter.mode(color, BlendMode.srcIn) : null);
           } catch (e, stackTrace) {
-            // Log the error that occurred during SVG creation or asset loading
-            _logger.e('Error loading SVG asset: $assetPath - ${e.toString()}', e, stackTrace);
-            // Re-throw to be caught by the FutureBuilder's error handler
-            rethrow;
-          }
-        }),
-        builder: (context, snapshot) {
-          // If the future completed successfully, return the SVG widget
-          if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
-            return snapshot.data!;
-          }
-          // If there was an error, return the fallback widget
-          else if (snapshot.hasError) {
-            _logger.e('FutureBuilder error loading SVG: $assetPath - ${snapshot.error}', snapshot.error, snapshot.stackTrace);
+            // If parsing the SVG fails, log and return fallback
+            _logger.e('Error parsing SVG string: $assetPath', e, stackTrace);
             return fallbackWidget;
           }
-          // While loading, show the fallback widget
-          else {
-            return fallbackWidget;
+        }
+        // If there was an error or no data, return the fallback widget
+        else if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasError) {
+            _logger.e('Error loading SVG: $assetPath', snapshot.error, snapshot.stackTrace);
+          } else {
+            _logger.w('No SVG data loaded for: $assetPath');
           }
-        },
-      );
-    } catch (e, stackTrace) {
-      // This is a final safety net to catch any other errors
-      _logger.e('Unexpected error in _safeLoadSvgAsset: $assetPath - ${e.toString()}', e, stackTrace);
-      return fallbackWidget;
-    }
+          return fallbackWidget;
+        }
+        // While loading, show the fallback widget
+        else {
+          return fallbackWidget;
+        }
+      },
+    );
   }
 
   // Get an SVG widget for the given issuer and name
@@ -456,10 +482,31 @@ class IconService {
     );
   }
 
+  // Cache for the asset manifest
+  Map<String, dynamic>? _assetManifestCache;
+
+  // Preload the asset manifest to make subsequent asset checks faster
+  Future<void> _preloadAssetManifest() async {
+    if (_assetManifestCache != null) return; // Already loaded
+
+    try {
+      _logger.d('Preloading asset manifest');
+      final manifestContent = await rootBundle.loadString('AssetManifest.json');
+      _assetManifestCache = json.decode(manifestContent);
+      _logger.i('Asset manifest preloaded with ${_assetManifestCache!.length} entries');
+    } catch (e, stackTrace) {
+      _logger.w('Error preloading asset manifest', e, stackTrace);
+      // Don't throw - we'll fall back to direct loading if needed
+    }
+  }
+
   // Preload common icons to improve performance
   Future<void> preloadCommonIcons() async {
     _logger.d('Preloading common icons');
     try {
+      // First preload the asset manifest
+      await _preloadAssetManifest();
+
       // List of common services that might be used frequently
       final commonServices = [
         'google.com',
