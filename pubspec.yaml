@@ -35,9 +35,9 @@ dependencies:
   file_picker: ^10.1.2
 
   # For file operations on mobile platforms
-  path_provider: ^latest_major_version
-  share_plus: ^latest_major_version
-
+  path_provider: ^2.1.5
+  share_plus: ^10.1.4
+  
   # Logging
   logger: ^2.0.2+1
 
