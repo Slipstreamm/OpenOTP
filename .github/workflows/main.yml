@@ -20,10 +20,10 @@ jobs:
         id: tags
         run: |
           git fetch --tags
-          # sort tags by semantic version, descending
-          IFS=$'\n' read -d '' -r -a TAGS < <(git tag --sort=-version:refname)
-          echo "latest_tag=${TAGS[0]}" >> "$GITHUB_OUTPUT"
-          echo "previous_tag=${TAGS[1]}" >> "$GITHUB_OUTPUT"
+          latest_tag=$(git tag --sort=-version:refname | head -n1)
+          previous_tag=$(git tag --sort=-version:refname | sed -n '2p')
+          echo "latest_tag=$latest_tag" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=$previous_tag" >> "$GITHUB_OUTPUT"
   windows-build:
     name: Build for Windows (Inno Setup)
     runs-on: windows-latest
