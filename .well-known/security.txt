@@ -1,0 +1,5 @@
+Contact: mailto:security@openotp.lol
+Preferred-Languages: en
+Canonical: https://openotp.lol/.well-known/security.txt
+Policy: https://github.com/Slipstreamm/OpenOTP/security/policy
+Expires: 2025-12-31T23:59:00Z
