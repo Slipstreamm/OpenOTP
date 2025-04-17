@@ -515,26 +515,179 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Navigate to edit screen for an OTP entry
+  // Show dialog to edit OTP entry
   Future<void> _editOtpEntry(OtpEntry entry) async {
-    _logger.d('Navigating to edit OTP entry: ${entry.name}');
+    _logger.d('Showing edit dialog for OTP entry: ${entry.name}');
     try {
-      // Create a screen to edit the entry
-      // For now, we'll just navigate to the add screen and let the user re-enter the data
-      // In a future enhancement, we could create a proper edit screen that pre-fills the data
       if (!mounted) return;
 
-      final result = await Navigator.pushNamed<bool>(context, RouteGenerator.addOtp, arguments: {'showQrOptions': true});
+      final result = await _showEditOtpDialog(entry);
 
       if (result == true) {
         _logger.i('OTP entry edited, reloading entries');
         await _loadOtpEntries();
       } else {
-        _logger.d('Edit OTP entry cancelled or failed');
+        _logger.d('Edit OTP entry cancelled');
       }
     } catch (e, stackTrace) {
-      _logger.e('Error navigating to edit OTP entry', e, stackTrace);
+      _logger.e('Error editing OTP entry', e, stackTrace);
     }
+  }
+
+  // Show a dialog to edit an OTP entry
+  Future<bool?> _showEditOtpDialog(OtpEntry entry) async {
+    _logger.d('Building edit dialog for OTP entry: ${entry.name}');
+
+    // Controllers for text fields
+    final nameController = TextEditingController(text: entry.name);
+    final issuerController = TextEditingController(text: entry.issuer);
+    final iconSearchController = TextEditingController(text: entry.issuer.isNotEmpty ? entry.issuer : entry.name);
+
+    // For icon preview
+    String? selectedIconPath;
+    String searchTerm = iconSearchController.text;
+
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            // Function to search for icons
+            Future<void> searchIcons() async {
+              _logger.d('Searching for icons with term: $searchTerm');
+              final iconService = Provider.of<IconService>(context, listen: false);
+              selectedIconPath = await iconService.findIconPath(searchTerm, searchTerm);
+              setState(() {}); // Update the UI with the new icon
+            }
+
+            // Initial icon search
+            if (selectedIconPath == null) {
+              searchIcons();
+            }
+
+            return AlertDialog(
+              title: const Text('Edit OTP Entry'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Name field
+                    TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Account Name', hintText: 'e.g., personal@example.com')),
+                    const SizedBox(height: 16),
+
+                    // Issuer field
+                    TextField(controller: issuerController, decoration: const InputDecoration(labelText: 'Issuer/Service', hintText: 'e.g., Google, GitHub')),
+                    const SizedBox(height: 24),
+
+                    // Icon search section
+                    const Text('Icon Search', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: iconSearchController,
+                            decoration: const InputDecoration(
+                              labelText: 'Search Term',
+                              hintText: 'e.g., github.com, google',
+                              helperText: 'Enter domain or service name',
+                            ),
+                            onChanged: (value) {
+                              searchTerm = value;
+                            },
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.search),
+                          onPressed: () {
+                            searchIcons();
+                          },
+                          tooltip: 'Search for icon',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Icon preview
+                    Center(
+                      child: Column(
+                        children: [
+                          const Text('Icon Preview'),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(8)),
+                            child:
+                                selectedIconPath != null
+                                    ? Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Provider.of<IconService>(
+                                        context,
+                                        listen: false,
+                                      ).getIconWidget(issuerController.text, nameController.text, size: 48),
+                                    )
+                                    : _buildFallbackIconPreview(issuerController.text, nameController.text),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(false);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    // Validate inputs
+                    if (nameController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account name cannot be empty')));
+                      return;
+                    }
+
+                    // Create updated entry
+                    final updatedEntry = entry.copyWith(name: nameController.text.trim(), issuer: issuerController.text.trim());
+
+                    try {
+                      // Save the updated entry
+                      await _storageService.updateOtpEntry(updatedEntry);
+
+                      // Clear icon cache for this entry
+                      _iconCache.remove(entry.id);
+
+                      if (context.mounted) {
+                        Navigator.of(context).pop(true);
+                      }
+                    } catch (e, stackTrace) {
+                      _logger.e('Error saving updated OTP entry', e, stackTrace);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving changes: ${e.toString()}')));
+                      }
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Build a fallback icon preview for the edit dialog
+  Widget _buildFallbackIconPreview(String issuer, String name) {
+    final String firstLetter = (issuer.isNotEmpty ? issuer : name).substring(0, 1).toUpperCase();
+    return Container(
+      decoration: BoxDecoration(color: Theme.of(context).primaryColor, borderRadius: BorderRadius.circular(8)),
+      child: Center(child: Text(firstLetter, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24))),
+    );
   }
 
   @override
@@ -611,7 +764,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ],
                                   ),
                                 ),
-                                // Delete button - now outside of the drag area
+                                // Edit button
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(24),
+                                    onTap: () => _editOtpEntry(entry),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Icon(Icons.edit, color: Theme.of(context).primaryColor, size: 24),
+                                    ),
+                                  ),
+                                ),
+                                // Delete button
                                 Material(
                                   color: Colors.transparent,
                                   child: InkWell(
@@ -1185,6 +1350,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                 _copyCodeToClipboard(code);
                                 Navigator.pop(context);
                               },
+                    ),
+                    TextButton.icon(
+                      icon: const Icon(Icons.edit),
+                      label: const Text('Edit'),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _editOtpEntry(entry);
+                      },
                     ),
                     if (!_isEditMode)
                       TextButton.icon(

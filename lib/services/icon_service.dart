@@ -13,10 +13,14 @@ class IconService {
 
   // Find the icon path for a given issuer or name
   Future<String?> findIconPath(String issuer, String name) async {
+    // Convert to lowercase for case-insensitive matching
+    final lowerIssuer = issuer.toLowerCase();
+    final lowerName = name.toLowerCase();
+
     _logger.d('Finding icon for issuer: $issuer, name: $name');
 
     // Check cache first
-    final cacheKey = '$issuer:$name';
+    final cacheKey = '$lowerIssuer:$lowerName';
     if (_iconCache.containsKey(cacheKey)) {
       _logger.d('Using cached icon path for $cacheKey: ${_iconCache[cacheKey]}');
       return _iconCache[cacheKey];
@@ -25,8 +29,8 @@ class IconService {
     String? iconPath;
 
     // Try to find icon based on issuer first
-    if (issuer.isNotEmpty) {
-      iconPath = await _findIconForDomain(issuer);
+    if (lowerIssuer.isNotEmpty) {
+      iconPath = await _findIconForDomain(lowerIssuer);
       if (iconPath != null) {
         _iconCache[cacheKey] = iconPath;
         return iconPath;
@@ -34,7 +38,7 @@ class IconService {
     }
 
     // If no icon found for issuer, try with name
-    iconPath = await _findIconForDomain(name);
+    iconPath = await _findIconForDomain(lowerName);
 
     // Cache the result (even if null)
     _iconCache[cacheKey] = iconPath;
@@ -189,6 +193,7 @@ class IconService {
   Future<String?> _findIconForDomain(String domain) async {
     _logger.d('Looking for icon for domain/name: $domain');
 
+    // Domain should already be lowercase from the calling method
     // Strip protocol if present
     domain = domain.replaceAll(RegExp(r'^https?://'), '');
 
