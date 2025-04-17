@@ -7,8 +7,19 @@ import 'auth_service.dart';
 import 'logger_service.dart';
 import 'settings_service.dart';
 import 'secure_storage_service.dart';
+import 'settings_service_interface.dart';
 
 class ThemeService with ChangeNotifier {
+  // Allow injecting a fake in tests:
+  final ISettingsService _settingsService;
+  final LoggerService _logger;
+  final AuthService _authService;
+
+  ThemeService({ISettingsService? settingsService, LoggerService? logger, AuthService? authService})
+    : _settingsService = settingsService ?? SettingsService(),
+      _logger = logger ?? LoggerService(),
+      _authService = authService ?? AuthService();
+
   // Theme definitions as static final fields
   final ThemeData darkTheme = ThemeData(
     useMaterial3: false,
@@ -299,23 +310,13 @@ class ThemeService with ChangeNotifier {
     popupMenuTheme: PopupMenuThemeData(color: const Color(0xFF1E1E1E), textStyle: const TextStyle(color: Colors.white)),
   );
 
-  final SettingsService _settingsService = SettingsService();
-  final LoggerService _logger = LoggerService();
-  final AuthService _authService = AuthService();
-
   late SettingsModel _settings;
   bool _isInitialized = false;
 
-  // Getter for current theme mode
   ThemeMode get themeMode => _settings.themeMode;
-
-  // Getter for settings
   SettingsModel get settings => _settings;
-
-  // Getter for initialization status
   bool get isInitialized => _isInitialized;
 
-  // Initialize theme service
   Future<void> initialize() async {
     _logger.d('Initializing theme service');
     try {
@@ -323,9 +324,8 @@ class ThemeService with ChangeNotifier {
       _isInitialized = true;
       _logger.i('Theme service initialized with mode: ${_settings.themeMode}');
       notifyListeners();
-    } catch (e, stackTrace) {
-      _logger.e('Error initializing theme service', e, stackTrace);
-      // Use default settings in case of error
+    } catch (e, stack) {
+      _logger.e('Error initializing theme service', e, stack);
       _settings = SettingsModel.defaults;
       _isInitialized = true;
       notifyListeners();

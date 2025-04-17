@@ -352,6 +352,22 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  golden_screenshot:
+    dependency: "direct main"
+    description:
+      name: golden_screenshot
+      sha256: "548b49cb2d7ee57664ed8cfd44df764182c59b04a437c7d695ed784e3a21569f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.0"
+  golden_toolkit:
+    dependency: "direct main"
+    description:
+      name: golden_toolkit
+      sha256: "8f74adab33154fe7b731395782797021f97d2edc52f7bfb85ff4f1b5c4a215f0"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.15.0"
   http:
     dependency: transitive
     description:
@@ -999,4 +1015,4 @@ packages:
     version: "0.2.3"
 sdks:
   dart: ">=3.7.2 <4.0.0"
-  flutter: ">=3.27.0"
+  flutter: ">=3.28.0-0.1.pre"

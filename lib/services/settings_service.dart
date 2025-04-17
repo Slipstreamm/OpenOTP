@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:openotp/services/settings_service_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/settings_model.dart';
 import '../utils/page_transitions.dart';
 import 'logger_service.dart';
 import 'app_reload_service.dart';
 
-class SettingsService {
+class SettingsService implements ISettingsService {
   static const String _settingsKey = 'app_settings';
   final LoggerService _logger = LoggerService();
   final AppReloadService _reloadService = AppReloadService();
