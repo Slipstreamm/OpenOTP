@@ -210,7 +210,7 @@ jobs:
           BUILD_ID=${{ needs.ios-build.outputs.build_id }}
           echo "Polling status for build ID: $BUILD_ID"
 
-          for i in {1..30}; do
+          for i in {1..100}; do
             STATUS=$(curl -s -H "x-auth-token: ${{ secrets.CODEMAGIC_TOKEN }}" \
               "https://api.codemagic.io/builds/$BUILD_ID" | jq -r '.build.status')
 
