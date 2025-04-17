@@ -55,6 +55,7 @@ jobs:
         run: |
           echo '; Inno Setup script to package the Flutter app' > package.iss
           echo '[Setup]' >> package.iss
+          echo  'Compression=zip' >> package.iss
           echo 'AppName=OpenOTP' >> package.iss
           echo "AppVersion=${{ needs.get-latest-tag.outputs.latest_tag }}" >> package.iss
           echo 'DefaultDirName={pf}\OpenOTP' >> package.iss
