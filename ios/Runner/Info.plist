@@ -49,6 +49,10 @@
 	<string>This app requires camera access to scan QR codes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library to import QR images.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app does not use location services.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app does not use location services.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>
