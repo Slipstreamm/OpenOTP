@@ -1,4 +1,5 @@
 ![Logo](https://raw.githubusercontent.com/Slipstreamm/OpenOTP/refs/heads/master/assets/icons/horizontal_transparent_invert.png)
+[![Download on the App Store](https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg)](https://apps.apple.com/us/app/openotp/id6744670884)
 [![Multi-Platform Build and Release Workflow](https://github.com/Slipstreamm/OpenOTP/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/Slipstreamm/OpenOTP/actions/workflows/main.yml)
 
 # OpenOTP
