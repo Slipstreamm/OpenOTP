@@ -348,30 +348,33 @@ class IconService {
   // Cache for asset existence checks to avoid repeated checks
   final Map<String, bool> _assetExistsCache = {};
 
-  // Check if an asset exists by attempting to load it as a ByteData
-  // This is more reliable than the previous approach but still has limitations
+  // Check if an asset exists by attempting to load it as a ByteData using rootBundle
+  // This is the most reliable approach for checking asset existence
   Future<bool> _checkAssetExists(String assetPath) async {
-    // Check cache first
+    // Check cache first for better performance
     if (_assetExistsCache.containsKey(assetPath)) {
       return _assetExistsCache[assetPath]!;
     }
 
     _logger.d('Checking if asset exists: $assetPath');
     try {
-      // Try to load the asset as a ByteData
-      await rootBundle.load(assetPath);
-      _logger.d('Asset exists: $assetPath');
+      // Use rootBundle to load the asset as a ByteData
+      // This directly accesses the app's asset bundle
+      final ByteData data = await rootBundle.load(assetPath);
+
+      // If we get here, the asset exists
+      _logger.d('Asset exists: $assetPath (${data.lengthInBytes} bytes)');
       _assetExistsCache[assetPath] = true;
       return true;
     } catch (e) {
-      // If we get an error, the asset doesn't exist
-      _logger.d('Asset does not exist: $assetPath');
+      // If we get an error, the asset doesn't exist or couldn't be loaded
+      _logger.d('Asset does not exist: $assetPath - ${e.toString()}');
       _assetExistsCache[assetPath] = false;
       return false;
     }
   }
 
-  // Safely load an SVG asset with proper error handling
+  // Safely load an SVG asset with proper error handling using rootBundle
   Widget _safeLoadSvgAsset(String assetPath, {double size = 24.0, Color? color, required Widget fallbackWidget}) {
     _logger.d('Safely loading SVG asset: $assetPath');
 
@@ -380,9 +383,13 @@ class IconService {
       // Use a FutureBuilder to handle the asynchronous loading of the SVG asset
       // This provides better error handling for asset loading failures
       return FutureBuilder<Widget>(
-        future: Future<Widget>(() {
+        future: Future<Widget>(() async {
           try {
-            // Attempt to create the SVG picture
+            // First verify the asset exists using rootBundle directly
+            await rootBundle.load(assetPath);
+
+            // Attempt to create the SVG picture using SvgPicture.asset
+            // SvgPicture.asset internally uses rootBundle to load the asset
             return SvgPicture.asset(
               assetPath,
               width: size,
@@ -395,8 +402,8 @@ class IconService {
               },
             );
           } catch (e, stackTrace) {
-            // Log the error that occurred during SVG creation
-            _logger.e('Error creating SVG picture: $assetPath - ${e.toString()}', e, stackTrace);
+            // Log the error that occurred during SVG creation or asset loading
+            _logger.e('Error loading SVG asset: $assetPath - ${e.toString()}', e, stackTrace);
             // Re-throw to be caught by the FutureBuilder's error handler
             rethrow;
           }
@@ -439,7 +446,7 @@ class IconService {
           final iconPath = snapshot.data!;
           _logger.d('Attempting to load SVG icon: $iconPath');
 
-          // Use the safe loading method
+          // Use the safe loading method which uses rootBundle internally
           return _safeLoadSvgAsset(iconPath, size: size, color: color, fallbackWidget: fallbackWidget);
         }
 
@@ -447,6 +454,43 @@ class IconService {
         return fallbackWidget;
       },
     );
+  }
+
+  // Preload common icons to improve performance
+  Future<void> preloadCommonIcons() async {
+    _logger.d('Preloading common icons');
+    try {
+      // List of common services that might be used frequently
+      final commonServices = [
+        'google.com',
+        'github.com',
+        'microsoft.com',
+        'apple.com',
+        'amazon.com',
+        'facebook.com',
+        'twitter.com',
+        'instagram.com',
+        'linkedin.com',
+        'dropbox.com',
+        'slack.com',
+        'discord.com',
+        'zoom.us',
+        'paypal.com',
+        'netflix.com',
+        'spotify.com',
+        'steam',
+        'reddit.com',
+      ];
+
+      // Preload icons for common services
+      for (final service in commonServices) {
+        await findIconPath(service, service);
+      }
+      _logger.i('Preloaded common icons');
+    } catch (e, stackTrace) {
+      // Log but don't throw - preloading is optional
+      _logger.w('Error preloading common icons', e, stackTrace);
+    }
   }
 
   // Build a fallback icon with the first letter of the name or issuer

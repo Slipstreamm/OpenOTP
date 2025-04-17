@@ -12,6 +12,7 @@ import '../services/qr_scanner_service.dart';
 import '../services/icon_service.dart';
 import '../services/theme_service.dart';
 import '../services/auth_service.dart';
+import '../services/app_reload_service.dart';
 import '../utils/route_generator.dart';
 
 // Enum for the FAB menu options
@@ -29,8 +30,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final OtpService _otpService = OtpService();
   final LoggerService _logger = LoggerService();
   final QrScannerService _qrScannerService = QrScannerService();
-  final IconService _iconService = IconService();
+  late final IconService _iconService; // Will be initialized from Provider
   final AuthService _authService = AuthService();
+  final AppReloadService _reloadService = AppReloadService();
   List<OtpEntry> _otpEntries = [];
   Timer? _timer;
   int _secondsRemaining = 30;
@@ -45,10 +47,22 @@ class _HomeScreenState extends State<HomeScreen> {
   // Selected OTP entry for Authy-style view
   String? _selectedOtpId;
 
+  // Subscriptions for reload events
+  StreamSubscription? _otpEntriesReloadSubscription;
+  StreamSubscription? _fullAppReloadSubscription;
+
   @override
   void initState() {
     super.initState();
     _logger.i('Initializing HomeScreen');
+
+    // Get the IconService from Provider
+    _iconService = Provider.of<IconService>(context, listen: false);
+    _logger.d('IconService obtained from Provider');
+
+    // Set up listeners for reload events
+    _setupReloadListeners();
+
     _checkAndCleanupInvalidEntries();
     _startTimer();
   }
@@ -88,10 +102,29 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // Set up listeners for reload events
+  void _setupReloadListeners() {
+    _logger.d('Setting up reload listeners for HomeScreen');
+
+    // Listen for OTP entries reload events
+    _otpEntriesReloadSubscription = _reloadService.onOtpEntriesReload.listen((_) {
+      _logger.i('OTP entries reload event received');
+      _loadOtpEntries();
+    });
+
+    // Listen for full app reload events
+    _fullAppReloadSubscription = _reloadService.onFullAppReload.listen((_) {
+      _logger.i('Full app reload event received');
+      _loadOtpEntries();
+    });
+  }
+
   @override
   void dispose() {
     _logger.i('Disposing HomeScreen');
     _timer?.cancel();
+    _otpEntriesReloadSubscription?.cancel();
+    _fullAppReloadSubscription?.cancel();
     super.dispose();
   }
 

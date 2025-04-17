@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'services/logger_service.dart';
 import 'services/theme_service.dart';
 import 'services/auth_service.dart';
+import 'services/icon_service.dart';
 import 'utils/route_generator.dart';
 import 'screens/lock_screen.dart';
 
@@ -39,7 +40,22 @@ void main() async {
   final authService = AuthService();
   logger.i('Auth service initialized');
 
-  runApp(ChangeNotifierProvider(create: (_) => themeService, child: const MyApp()));
+  // Initialize icon service and preload common icons
+  final iconService = IconService();
+  // Preload common icons in the background
+  iconService
+      .preloadCommonIcons()
+      .then((_) {
+        logger.i('Common icons preloaded');
+      })
+      .catchError((error, stackTrace) {
+        logger.e('Error preloading common icons', error, stackTrace);
+      });
+
+  // Provide both theme service and icon service to the widget tree
+  runApp(
+    MultiProvider(providers: [ChangeNotifierProvider(create: (_) => themeService), Provider<IconService>(create: (_) => iconService)], child: const MyApp()),
+  );
 }
 
 class MyApp extends StatelessWidget {

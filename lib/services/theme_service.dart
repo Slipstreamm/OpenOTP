@@ -6,6 +6,7 @@ import '../utils/route_generator.dart';
 import 'auth_service.dart';
 import 'logger_service.dart';
 import 'settings_service.dart';
+import 'secure_storage_service.dart';
 
 class ThemeService with ChangeNotifier {
   // Theme definitions as static final fields
@@ -501,11 +502,41 @@ class ThemeService with ChangeNotifier {
   Future<void> updatePasswordEncryption(bool usePasswordEncryption) async {
     _logger.d('Updating password encryption setting to: $usePasswordEncryption');
     try {
+      // Check if we're disabling encryption
+      if (!usePasswordEncryption) {
+        _logger.d('Disabling password encryption, need to decrypt data first');
+
+        // Get the current password for decryption
+        final password = await _authService.getPasswordForEncryption();
+
+        if (password != null) {
+          // Create an instance of SecureStorageService
+          final secureStorageService = SecureStorageService();
+
+          // Decrypt the data before updating the setting
+          final success = await secureStorageService.decryptData(password);
+
+          if (!success) {
+            _logger.e('Failed to decrypt data when disabling password encryption');
+            // Throw an exception to be caught by the caller
+            throw Exception('Failed to decrypt data when disabling password encryption');
+          }
+
+          _logger.i('Successfully decrypted data when disabling password encryption');
+        } else {
+          _logger.w('Could not get password for decryption when disabling encryption');
+          throw Exception('Could not get password for decryption');
+        }
+      }
+
+      // Update the setting
       _settings = await _settingsService.updatePasswordEncryption(usePasswordEncryption);
       _logger.i('Password encryption setting updated to: $usePasswordEncryption');
       notifyListeners();
     } catch (e, stackTrace) {
       _logger.e('Error updating password encryption setting', e, stackTrace);
+      // Re-throw the exception to be handled by the caller
+      rethrow;
     }
   }
 

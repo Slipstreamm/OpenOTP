@@ -13,6 +13,7 @@ import '../services/qr_scanner_service.dart';
 import '../services/secure_storage_service.dart';
 import '../services/settings_service.dart';
 import '../services/theme_service.dart';
+import '../services/app_reload_service.dart';
 import '../widgets/custom_app_bar.dart';
 
 // A dedicated QR scanner screen to handle QR code scanning safely
@@ -125,6 +126,7 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
   final SecureStorageService _storageService = SecureStorageService();
   final SettingsService _settingsService = SettingsService();
   final QrScannerService _qrScannerService = QrScannerService();
+  final AppReloadService _reloadService = AppReloadService();
 
   final TextEditingController _deviceNameController = TextEditingController();
   final TextEditingController _syncPinController = TextEditingController();
@@ -285,6 +287,9 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
   Future<void> _applyReceivedData(SyncDataModel data) async {
     _logger.d('Applying received data');
 
+    bool otpEntriesUpdated = false;
+    bool settingsUpdated = false;
+
     // Apply OTP entries
     if (data.otpEntries.isNotEmpty) {
       // Get existing entries
@@ -298,6 +303,7 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
         final mergedEntries = [...existingEntries, ...newEntries];
         await _storageService.saveOtpEntries(mergedEntries);
         _logger.i('Added ${newEntries.length} new OTP entries');
+        otpEntriesUpdated = true;
       } else {
         _logger.i('No new OTP entries to add');
       }
@@ -311,12 +317,25 @@ class _LanSyncScreenState extends State<LanSyncScreen> {
 
       await _settingsService.saveSettings(newSettings);
       _logger.i('Applied settings');
+      settingsUpdated = true;
 
       // Notify theme service of changes
       if (mounted) {
         final themeService = Provider.of<ThemeService>(context, listen: false);
         await themeService.initialize();
       }
+    }
+
+    // Trigger appropriate reload events
+    if (otpEntriesUpdated && settingsUpdated) {
+      _reloadService.triggerFullAppReload();
+      _logger.i('Triggered full app reload after sync');
+    } else if (otpEntriesUpdated) {
+      _reloadService.triggerOtpEntriesReload();
+      _logger.i('Triggered OTP entries reload after sync');
+    } else if (settingsUpdated) {
+      _reloadService.triggerSettingsReload();
+      _logger.i('Triggered settings reload after sync');
     }
   }
 

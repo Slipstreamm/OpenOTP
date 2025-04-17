@@ -6,6 +6,7 @@ import 'package:openotp/services/export_service.dart';
 import 'package:openotp/services/logger_service.dart';
 import 'package:openotp/services/secure_storage_service.dart';
 import 'package:openotp/services/settings_service.dart';
+import 'package:openotp/services/app_reload_service.dart';
 import 'package:openotp/widgets/custom_app_bar.dart';
 
 class ImportScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
   final ExportService _exportService = ExportService();
   final SecureStorageService _storageService = SecureStorageService();
   final SettingsService _settingsService = SettingsService();
+  final AppReloadService _reloadService = AppReloadService();
 
   // Tab controller
   late TabController _tabController;
@@ -351,6 +353,9 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
   Future<void> _performImport() async {
     _logger.d('Performing import');
 
+    bool otpEntriesUpdated = false;
+    bool settingsUpdated = false;
+
     try {
       // Import OTP entries if selected and available
       if (_importOtpEntries && _importData!.containsKey('otpEntries')) {
@@ -368,6 +373,7 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
           final mergedEntries = [...existingEntries, ...uniqueNewEntries];
           await _storageService.saveOtpEntries(mergedEntries);
           _logger.i('Added ${uniqueNewEntries.length} new OTP entries');
+          otpEntriesUpdated = true;
         } else {
           _logger.i('No new OTP entries to add');
         }
@@ -380,6 +386,19 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
 
         await _settingsService.saveSettings(settings);
         _logger.i('Imported settings');
+        settingsUpdated = true;
+      }
+
+      // Trigger appropriate reload events
+      if (otpEntriesUpdated && settingsUpdated) {
+        _reloadService.triggerFullAppReload();
+        _logger.i('Triggered full app reload after import');
+      } else if (otpEntriesUpdated) {
+        _reloadService.triggerOtpEntriesReload();
+        _logger.i('Triggered OTP entries reload after import');
+      } else if (settingsUpdated) {
+        _reloadService.triggerSettingsReload();
+        _logger.i('Triggered settings reload after import');
       }
 
       if (mounted) {

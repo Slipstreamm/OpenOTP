@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:openotp/widgets/custom_app_bar.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +8,7 @@ import '../services/theme_service.dart';
 import '../services/auth_service.dart';
 import '../services/secure_storage_service.dart';
 import '../services/settings_service.dart';
+import '../services/app_reload_service.dart';
 import '../utils/page_transitions.dart';
 import '../utils/route_generator.dart';
 
@@ -21,11 +23,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final LoggerService _logger = LoggerService();
   final SecureStorageService _storageService = SecureStorageService();
   final SettingsService _settingsService = SettingsService();
+  final AppReloadService _reloadService = AppReloadService();
+
+  // Subscriptions for reload events
+  StreamSubscription? _settingsReloadSubscription;
+  StreamSubscription? _fullAppReloadSubscription;
 
   @override
   void initState() {
     super.initState();
     _logger.i('Initializing SettingsScreen');
+
+    // Set up listeners for reload events
+    _setupReloadListeners();
+  }
+
+  // Set up listeners for reload events
+  void _setupReloadListeners() {
+    _logger.d('Setting up reload listeners for SettingsScreen');
+
+    // Listen for settings reload events
+    _settingsReloadSubscription = _reloadService.onSettingsReload.listen((_) {
+      _logger.i('Settings reload event received');
+      // Refresh the ThemeService to reload settings
+      if (mounted) {
+        final themeService = Provider.of<ThemeService>(context, listen: false);
+        themeService.initialize();
+      }
+    });
+
+    // Listen for full app reload events
+    _fullAppReloadSubscription = _reloadService.onFullAppReload.listen((_) {
+      _logger.i('Full app reload event received');
+      // Refresh the ThemeService to reload settings
+      if (mounted) {
+        final themeService = Provider.of<ThemeService>(context, listen: false);
+        themeService.initialize();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _logger.i('Disposing SettingsScreen');
+    _settingsReloadSubscription?.cancel();
+    _fullAppReloadSubscription?.cancel();
+    super.dispose();
   }
 
   void _showPageTransitionDialog(BuildContext context, ThemeService themeService) {
@@ -302,7 +345,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   if (value) {
                                     _showPasswordEncryptionInfoDialog(context, themeService);
                                   } else {
-                                    themeService.updatePasswordEncryption(false);
+                                    // Store a reference to the scaffold messenger before the async gap
+                                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                                    // Show a loading indicator
+                                    scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Decrypting OTP keys...')));
+
+                                    // Disable encryption and decrypt data
+                                    themeService
+                                        .updatePasswordEncryption(false)
+                                        .then((_) {
+                                          if (mounted) {
+                                            scaffoldMessenger.showSnackBar(
+                                              const SnackBar(content: Text('Password encryption disabled and OTP keys decrypted')),
+                                            );
+                                          }
+                                        })
+                                        .catchError((error) {
+                                          _logger.e('Error disabling password encryption', error);
+                                          if (mounted) {
+                                            scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Error disabling password encryption')));
+                                          }
+                                        });
                                   }
                                 }
                                 : null,
@@ -532,7 +596,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       // If data was imported, show a message
       if (result == true && mounted) {
-        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Import completed. Restart the app to see all changes.')));
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Import completed successfully')));
       }
     } catch (e, stackTrace) {
       _logger.e('Error navigating to import screen', e, stackTrace);
@@ -1078,10 +1142,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: () {
                 _logger.d('Password encryption enabled');
                 Navigator.pop(dialogContext);
-                themeService.updatePasswordEncryption(true);
 
-                // Show a success message
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password encryption enabled')));
+                // Store a reference to the scaffold messenger before the async gap
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+                // Show a loading indicator
+                scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Encrypting OTP keys...')));
+
+                // Enable encryption
+                themeService
+                    .updatePasswordEncryption(true)
+                    .then((_) {
+                      if (mounted) {
+                        // Show a success message
+                        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Password encryption enabled and OTP keys encrypted')));
+                      }
+                    })
+                    .catchError((error) {
+                      _logger.e('Error enabling password encryption', error);
+                      if (mounted) {
+                        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Error enabling password encryption')));
+                      }
+                    });
               },
               child: const Text('Enable'),
             ),

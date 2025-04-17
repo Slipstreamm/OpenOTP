@@ -4,10 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/settings_model.dart';
 import '../utils/page_transitions.dart';
 import 'logger_service.dart';
+import 'app_reload_service.dart';
 
 class SettingsService {
   static const String _settingsKey = 'app_settings';
   final LoggerService _logger = LoggerService();
+  final AppReloadService _reloadService = AppReloadService();
 
   // Singleton pattern
   static final SettingsService _instance = SettingsService._internal();
@@ -22,6 +24,9 @@ class SettingsService {
       final settingsJson = jsonEncode(settings.toJson());
       await prefs.setString(_settingsKey, settingsJson);
       _logger.i('Successfully saved app settings');
+
+      // Trigger settings reload event
+      _reloadService.triggerSettingsReload();
     } catch (e, stackTrace) {
       _logger.e('Error saving app settings', e, stackTrace);
       rethrow;

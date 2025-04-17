@@ -289,6 +289,9 @@ jobs:
         with:
           name: OpenOTP-Android-APK
 
+      - name: Rename APK
+        run: mv app-release.apk OpenOTP.apk
+
       - name: Download iOS IPA  
         uses: actions/download-artifact@v4  
         with:
@@ -301,6 +304,6 @@ jobs:
           artifacts: |
             OpenOTPInstaller.exe
             OpenOTP.AppImage
-            build/app/outputs/flutter-apk/app-release.apk
+            OpenOTP.apk
             OpenOTP.ipa  
           token: ${{ secrets.GITHUB_TOKEN }}
