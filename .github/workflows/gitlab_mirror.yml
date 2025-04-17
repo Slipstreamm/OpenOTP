@@ -26,5 +26,6 @@ jobs:
         run: |
           git remote remove gitlab 2>/dev/null || true
           git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.com/Slipstreamm/openotp.git"
-          git push --mirror gitlab
+          git push gitlab --all  # Push all branches
+          git push gitlab --tags # Push all tags
 
