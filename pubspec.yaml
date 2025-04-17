@@ -56,7 +56,7 @@ dependencies:
 
   # For LAN sync functionality
   network_info_plus: ^4.1.0
-  device_info_plus: ^10.0.0
+  device_info_plus: ^11.3.3
   encrypt: ^5.0.3
   crypto: ^3.0.3
   uuid: ^4.3.3
