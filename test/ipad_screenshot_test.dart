@@ -93,46 +93,43 @@ class FakeSettingsService implements ISettingsService {
 }
 
 void main() {
+  // Load your real fonts so text shows up properly
   setUpAll(() async {
     await loadAppFonts();
   });
 
-  testWidgets('OTP Home Screen Golden (iPad Pro 12.9) — dark mode', (WidgetTester tester) async {
-    // 1) Initialize binding and override window + platform settings
-    final binding = TestWidgetsFlutterBinding.ensureInitialized() as TestWidgetsFlutterBinding;
+  testGoldens('OTP Home Screen Golden @ iPad Pro 12.9 (2048×2732 px)', (WidgetTester tester) async {
+    // 1) Build a DeviceBuilder for a 12.9" iPad Pro:
+    final builder =
+        DeviceBuilder()
+          ..overrideDevicesForAllScenarios(
+            devices: [
+              Device(
+                name: 'iPad Pro 12.9',
+                // **logical** size in dp:
+                size: const Size(1024, 1366),
+                devicePixelRatio: 2.0,
+              ),
+            ],
+          )
+          ..addScenario(
+            name: 'OTP Home',
+            widget: MultiProvider(
+              providers: [
+                ChangeNotifierProvider<ThemeService>.value(
+                  value: ThemeService(settingsService: FakeSettingsService())..initialize(), // fire-and-forget is OK here
+                ),
+                Provider<IconService>.value(value: IconService()),
+              ],
+              child: const MaterialApp(home: HomeScreen()),
+            ),
+          );
 
-    // physical size & DPR → logical 1024×1366
-    binding.window.physicalSizeTestValue = const Size(2048, 2732);
-    binding.window.devicePixelRatioTestValue = 2.0;
-
-    // platform brightness override lives on platformDispatcher now:
-    binding.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
-
-    // 2) Prep your services
-    final themeService = ThemeService(settingsService: FakeSettingsService());
-    await themeService.initialize();
-    final iconService = IconService();
-
-    // 3) Pump app with ThemeMode.system so it respects our faked brightness
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [ChangeNotifierProvider.value(value: themeService), Provider.value(value: iconService)],
-        child: MaterialApp(
-          theme: themeService.getLightTheme(),
-          darkTheme: themeService.getDarkTheme(),
-          themeMode: ThemeMode.system,
-          home: const SettingsScreen(),
-        ),
-      ),
-    );
+    // 2) Pump the builder — this uses 1024×1366 dp @ 2.0 DPR → 2048×2732 px
+    await tester.pumpDeviceBuilder(builder);
     await tester.pumpAndSettle();
 
-    // 4) Capture golden at full 2048×2732px
-    await expectLater(find.byType(SettingsScreen), matchesGoldenFile('goldens/otp_settings_ipad_dark.png'));
-
-    // 5) Clear so other tests aren’t affected
-    binding.window.clearPhysicalSizeTestValue();
-    binding.window.clearDevicePixelRatioTestValue();
-    binding.platformDispatcher.clearPlatformBrightnessTestValue();
+    // 3) Compare against your golden file
+    await screenMatchesGolden(tester, 'otp_home_ipad_pro_12_9');
   });
 }

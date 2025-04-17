@@ -1,6 +1,6 @@
 # User defined
 asset_paths.txt
-
+goldens/
 # Miscellaneous
 *.class
 *.log
