@@ -1,5 +1,5 @@
 <p align="center">
-<img src=https://raw.githubusercontent.com/Slipstreamm/OpenOTP/refs/heads/master/assets/icons/horizontal_transparent_invert.png">
+<img src=https://raw.githubusercontent.com/Slipstreamm/OpenOTP/refs/heads/master/assets/icons/horizontal_transparent_invert.png>
 </p>
 
 <p align="center">
