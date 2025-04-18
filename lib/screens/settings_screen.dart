@@ -1058,7 +1058,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showLicensePage(
       context: context,
       applicationName: 'OpenOTP',
-      applicationVersion: 'v1.1.0+1', // Hard-coded version for now
+      applicationVersion: 'v1.1.1+1', // Hard-coded version for now
       applicationIcon: const Icon(Icons.app_shortcut, size: 48),
       applicationLegalese: '© ${DateTime.now().year} Hunter Lee',
     );

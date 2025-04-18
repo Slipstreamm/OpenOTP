@@ -2,7 +2,7 @@ name: openotp
 description: "OpenOTP is an open-source two-factor authentication (2FA) application for Android, iOS, macOS, and Windows."
 publish_to: 'none'
 
-version: 1.1.0+2
+version: 1.1.1+1
 
 environment:
   sdk: ^3.7.2
