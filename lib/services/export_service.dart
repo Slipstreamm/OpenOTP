@@ -133,17 +133,17 @@ class ExportService {
         allowedExtensions: ['json'],
       );
 
-      if (outputFile == null) {
-        _logger.d('User cancelled file save');
-        return false;
-      }
-
       // Ensure the file has .json extension
-      if (!outputFile.toLowerCase().endsWith('.json')) {
+      if (outputFile != null && !outputFile.toLowerCase().endsWith('.json')) {
         outputFile += '.json';
       }
 
       // Write to file
+      if (outputFile == null) {
+        _logger.w('No file selected for saving export');
+        return false;
+      }
+
       final file = File(outputFile);
       await file.writeAsString(data);
 

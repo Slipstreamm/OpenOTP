@@ -62,7 +62,8 @@ class QrScannerService {
       if (image != null) {
         String filePath = image.path;
         _logger.i('Image file picked (mobile): $filePath');
-        return await decodeQrFromImagePath(filePath);
+        // ignore: unnecessary_null_comparison
+        return filePath != null ? await decodeQrFromImagePath(filePath) : null;
       } else {
         _logger.d('No image picked on mobile');
         return null;
