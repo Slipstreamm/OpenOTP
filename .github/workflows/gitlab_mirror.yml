@@ -2,9 +2,6 @@ name: Mirror to GitLab
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - '**'
 
 jobs:
   mirror:
