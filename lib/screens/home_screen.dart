@@ -1689,7 +1689,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               return Card(
                 elevation: isSelected ? 4 : 1,
-                color: isSelected ? Theme.of(context).colorScheme.primary.withAlpha(25) : Theme.of(context).colorScheme.surface,
+                color: isSelected ? Theme.of(context).colorScheme.primary.withAlpha(100) : Theme.of(context).colorScheme.surface,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
