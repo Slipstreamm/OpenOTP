@@ -1,6 +1,8 @@
 ![Logo](https://raw.githubusercontent.com/Slipstreamm/OpenOTP/refs/heads/master/assets/icons/horizontal_transparent_invert.png)
 
-[![Download on the App Store](https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg)](https://apps.apple.com/us/app/openotp/id6744670884)
+<img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height: 60px;">
+
+<img src="https://openotp.lol/badges/androidapk.png" alt="Download Android APK" style="height: 60px;">
 
 [![Multi-Platform Build and Release Workflow](https://github.com/Slipstreamm/OpenOTP/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/Slipstreamm/OpenOTP/actions/workflows/main.yml)
 
