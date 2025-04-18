@@ -1,8 +1,9 @@
-![Logo](https://raw.githubusercontent.com/Slipstreamm/OpenOTP/refs/heads/master/assets/icons/horizontal_transparent_invert.png)
-
+<p align="center">
+<img src=https://raw.githubusercontent.com/Slipstreamm/OpenOTP/refs/heads/master/assets/icons/horizontal_transparent_invert.png style="height: 200px;"></img>
+</p>
+<p align="center">
 <a href="https://apps.apple.com/us/app/openotp/id6744670884" target="_blank" rel="noopener noreferrer"><img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height: 60px;"></a><a href="https://github.com/Slipstreamm/OpenOTP/releases/latest/download/OpenOTP.apk" target="_blank" rel="noopener noreferrer"><img src="https://openotp.lol/badges/androidapk.png" alt="Download Android APK" style="height: 60px;"></a>
-
-[![Multi-Platform Build and Release Workflow](https://github.com/Slipstreamm/OpenOTP/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/Slipstreamm/OpenOTP/actions/workflows/main.yml)
+</p>
 
 # OpenOTP
 
