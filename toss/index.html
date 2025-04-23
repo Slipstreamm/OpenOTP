@@ -3,96 +3,173 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Toss – Simple LAN File Sharing</title>
+  <meta name="description" content="Toss is a privacy-focused, open-source LAN file sharing app for all platforms." />
+  <link rel="icon" href="/favicon.ico" />
+  <title>Toss - LAN File Sharing for Everyone</title>
   <style>
     body {
-      margin: 0;
       font-family: system-ui, sans-serif;
-      background: #f9f9f9;
-      color: #222;
-      line-height: 1.6;
-    }
-    header {
-      background: #fff;
-      padding: 1.5rem;
-      border-bottom: 1px solid #ddd;
-    }
-    header h1 {
       margin: 0;
-      font-size: 1.8rem;
+      padding: 0;
+      background: #111;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
     }
-    nav {
-      margin-top: 0.5rem;
+    header, footer {
+      text-align: center;
+      padding: 1rem;
     }
-    nav a {
-      margin-right: 1rem;
+    header a {
+      color: #00bcd4;
+      margin: 0 1rem;
       text-decoration: none;
-      color: #007acc;
+      font-weight: bold;
+    }
+    header a:hover {
+      text-decoration: underline;
     }
     main {
       max-width: 800px;
-      margin: 2rem auto;
-      padding: 0 1rem;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 2.8rem;
+      margin-bottom: 0.2rem;
     }
     h2 {
       margin-top: 2rem;
       font-size: 1.5rem;
     }
-    ul {
-      padding-left: 1.5rem;
+    p {
+      line-height: 1.6;
     }
-    footer {
-      margin-top: 4rem;
-      padding: 1rem;
-      text-align: center;
-      font-size: 0.9rem;
-      color: #666;
+    a {
+      color: #00bcd4;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
     }
     .button {
       display: inline-block;
       margin-top: 1rem;
       padding: 0.6rem 1.2rem;
-      background: #007acc;
-      color: #fff;
-      text-decoration: none;
-      border-radius: 4px;
+      background-color: #00bcd4;
+      color: #000;
+      border-radius: 6px;
+      font-weight: bold;
     }
     .button:hover {
-      background: #005fa3;
+      background-color: #00acc1;
+    }
+    .donate-section {
+      margin-top: 1rem;
+    }
+    .donate-dropdown {
+      margin-top: 0.5rem;
+      display: none;
+      background: #222;
+      padding: 1rem;
+      border-radius: 6px;
+    }
+    .donate-button {
+      margin-top: 1rem;
+      cursor: pointer;
+      color: #00bcd4;
+      font-weight: bold;
+      border: none;
+      background: none;
+      font-size: 1rem;
+    }
+    footer {
+      margin-top: auto;
+      font-size: 0.9rem;
+      color: #777;
     }
   </style>
 </head>
 <body>
   <header>
     <h1>Toss</h1>
+    <p>Open Source LAN File Sharing</p>
     <nav>
-      <a href="#features">Features</a>
-      <a href="#download">Download</a>
-      <a href="#contribute">Contribute</a>
+      <a href="/">Home</a> |
+      <a href="/privacy/">Privacy</a> |
+      <a href="/support/">Support</a>
     </nav>
+    <a href="#download">Download</a>
+    <a href="#donate">Donate</a>
   </header>
-  <main>
-    <p><strong>Toss</strong> is a lightweight, cross-platform application designed for quick and easy file sharing over Local Area Networks (LAN). Share files between your devices without the need for cloud services or internet connectivity.</p>
 
-    <h2 id="features">Key Features</h2>
+  <main>
+    <p><strong>Toss</strong> is a simple, secure, and open-source LAN file sharing app. It lets you send and receive files over your local network without using the internet or relying on third-party servers.</p>
+
+    <h2>🚀 Features</h2>
     <ul>
-      <li>Direct device-to-device transfer over LAN</li>
-      <li>No internet required—works entirely offline</li>
-      <li>Cross-platform support (Windows, Linux, macOS, Android, iOS)</li>
-      <li>Simple and intuitive user interface</li>
-      <li>Secure transfers with optional encryption</li>
+      <li>Cross-platform support (Windows, Linux, Android, iOS)</li>
+      <li>No setup required – devices auto-discover each other</li>
+      <li>Transfers stay within your local network</li>
+      <li>Fast, secure, and peer-to-peer</li>
+      <li>Free and open-source</li>
     </ul>
 
-    <h2 id="download">Download</h2>
-    <p>Prebuilt binaries are available for all major platforms. Visit the Releases page to download:</p>
-    <a class="button" href="https://github.com/Slipstreamm/Toss/releases">Get Toss</a>
+    <h2 id="download">📦 Download</h2>
+    <p>
+      You can download the latest builds from the <a href="https://github.com/Slipstreamm/Toss/releases" target="_blank">GitHub Releases</a> page.
+    </p>
+    <a class="button" href="https://github.com/Slipstreamm/Toss/releases" target="_blank">Get Toss</a>
 
-    <h2 id="contribute">Contribute</h2>
-    <p>Contributions are welcome! Whether it's code, translations, or testing – check out the GitHub repository to get started.</p>
-    <a class="button" href="https://github.com/Slipstreamm/Toss">GitHub Repository</a>
+    <h2 id="donate">💖 Donate</h2>
+    <p>
+      If you find Toss helpful, consider donating to support continued development.
+    </p>
+    <div class="donate-section">
+      <li><strong>Donate Page:</strong> <a href="https://slipstreamm.github.io/donate" target="_blank">Click here</a></li>
+      <button class="donate-button" onclick="toggleDonate()">Show Crypto Addresses ▼</button>
+      <div class="donate-dropdown" id="donateDropdown">
+        <ul>
+          <li><strong>Bitcoin (BTC):</strong> <code>bc1q2hdtqu4pkp8r0dy528vq24lf6ppzmqfm0fzsfc</code></li>
+          <li><strong>Litecoin (LTC):</strong> <code>ltc1qcjdruwr557v0lq690gnymk92ch6g2jney0uddl</code></li>
+          <li><strong>Solana (SOL):</strong> <code>DMWUs9DM1RtyxcebvY4fcWEEZw5tHbBCuRme5BnxcuPN / fs0ciety.sol</code></li>
+          <li><strong>Monero (XMR):</strong> <code>885FnNNukkB8xGAcRZoK6QhPCcRebnyQETCXPB17mua96aAj4mrWSYUTDd5fsvjNEZ839dQerLUrYGRTBaTZvgLuPfujzgA</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <h2>🛠️ Contribute</h2>
+    <p>
+      Toss is open-source and welcomes contributions. Visit the <a href="https://github.com/Slipstreamm/Toss" target="_blank">GitHub repository</a> to get started.
+    </p>
+
+    <h2>📜 License</h2>
+    <p>
+      Toss is released under the <a href="https://opensource.org/licenses/MIT" target="_blank">MIT License</a>.
+    </p>
+
+    <h2>📬 Contact</h2>
+    <p>
+      Email us at <a href="mailto:toss@openotp.lol">toss@openotp.lol</a>
+    </p>
+    <p>
+      Spam, scam, or "SEO services" will be ignored.
+    </p>
   </main>
+
   <footer>
-    &copy; 2025 Slipstreamm • Toss is MIT Licensed
+    &copy; 2025 <a href="https://github.com/Slipstreamm" target="_blank">Slipstreamm</a> • Toss is MIT Licensed
   </footer>
+
+  <script>
+    function toggleDonate() {
+      const dropdown = document.getElementById('donateDropdown');
+      const button = document.querySelector('.donate-button');
+      const isVisible = dropdown.style.display === 'block';
+      dropdown.style.display = isVisible ? 'none' : 'block';
+      button.textContent = isVisible ? 'Show Crypto Addresses ▼' : 'Hide Crypto Addresses ▲';
+    }
+  </script>
 </body>
 </html>
