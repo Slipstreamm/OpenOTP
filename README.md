@@ -1,8 +1,10 @@
-![Logo](https://raw.githubusercontent.com/Slipstreamm/OpenOTP/refs/heads/master/assets/icons/horizontal_transparent_invert.png)
+<p align="center">
+<img src=https://raw.githubusercontent.com/Slipstreamm/OpenOTP/refs/heads/master/assets/icons/horizontal_transparent_invert.png>
+</p>
 
-[![Download on the App Store](https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg)](https://apps.apple.com/us/app/openotp/id6744670884)
-
-[![Multi-Platform Build and Release Workflow](https://github.com/Slipstreamm/OpenOTP/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/Slipstreamm/OpenOTP/actions/workflows/main.yml)
+<p align="center">
+<a href="https://apps.apple.com/us/app/openotp/id6744670884" target="_blank" rel="noopener noreferrer"><img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" style="height: 60px;"></a><a href="https://github.com/Slipstreamm/OpenOTP/releases/latest/download/OpenOTP.apk" target="_blank" rel="noopener noreferrer"><img src="https://openotp.lol/badges/androidapk.png" alt="Download Android APK" style="height: 60px;"></a>
+</p>
 
 # OpenOTP
 
@@ -12,9 +14,11 @@ A feature-rich, secure OTP (One-Time Password) generator app built with Flutter.
 
 ### Core Functionality
 
+- Sync OTP keys between LAN devices with encryption
+- Export OTP keys to a file with optional encryption
 - Securely store OTP keys using Flutter Secure Storage
-- Support for both TOTP (time-based) and HOTP (counter-based) codes
 - Optional AES encryption of OTP keys with a password
+- Support for both TOTP (time-based) and HOTP (counter-based) codes
 - Customize OTP settings (digits, period, algorithm, counter)
 - Multiple view options:
   - Grid view
@@ -41,7 +45,6 @@ A feature-rich, secure OTP (One-Time Password) generator app built with Flutter.
 - Password/PIN code protection
 - Encrypted storage of sensitive data
 - Optional second layer of encryption using your password
-- Secure password storage in platform's secure storage
 
 ### Backup & Sync
 
@@ -72,7 +75,7 @@ A feature-rich, secure OTP (One-Time Password) generator app built with Flutter.
 3. Run the app:
 
    ```bash
-   flutter run
+   flutter run --release
    ```
 
 ### Installation from Releases
@@ -97,7 +100,7 @@ Prebuilt binaries are available for all major platforms. Visit the [Releases pag
 
 - For TOTP entries, codes refresh automatically based on time
 - For HOTP entries, tap the dice button to generate a new code
-- Tap the code to copy it to clipboard
+- Tap the copy icon to copy it to clipboard
 - Enter edit mode to rearrange or delete entries
 - Switch between grid, list, and focus views in settings
 
@@ -118,7 +121,7 @@ Prebuilt binaries are available for all major platforms. Visit the [Releases pag
 ### Enhanced Security
 
 1. Set up a password in Settings > Security
-2. Enable the "Password Encryption" option to add a second layer of encryption
+2. Enable the "Encrypt OTP Keys" option to add a second layer of encryption
 3. Your OTP data will be encrypted with your password for additional security
 4. If you change your password, your data will be automatically re-encrypted
 5. If you remove your password, the second layer of encryption will be removed
