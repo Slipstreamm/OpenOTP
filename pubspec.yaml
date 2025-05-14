@@ -37,7 +37,9 @@ dependencies:
   # For file operations on mobile platforms
   path_provider: ^2.1.5
   share_plus: ^10.1.4
-  
+  permission_handler: ^11.3.0
+  mime: ^1.0.6
+
   # Logging
   logger: ^2.0.2+1
 

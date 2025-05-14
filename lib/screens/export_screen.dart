@@ -72,11 +72,87 @@ class _ExportScreenState extends State<ExportScreen> {
       if (mounted) {
         if (success) {
           if (Platform.isAndroid || Platform.isIOS) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export file ready to share')));
-          } else {
+            // Get the file path from the export service
+            final String? filePath = _exportService.getLastExportFilePath();
+
+            if (filePath != null && Platform.isAndroid && mounted) {
+              // Show a dialog with the file path on Android
+              showDialog(
+                context: context,
+                builder: (BuildContext dialogContext) {
+                  return AlertDialog(
+                    title: const Text('Export Successful'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Your export file has been saved to:'),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(4)),
+                          child: Text(filePath, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('You can access this file using any file manager app.'),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () async {
+                          // Store the context before the async gap
+                          final currentContext = dialogContext;
+
+                          // Try to open the file
+                          final success = await _exportService.openFile(filePath);
+
+                          // Check if the context is still valid after the async operation
+                          if (!success && currentContext.mounted) {
+                            ScaffoldMessenger.of(
+                              currentContext,
+                            ).showSnackBar(const SnackBar(content: Text('Could not open file. Try using a file manager app.')));
+                          }
+                        },
+                        child: const Text('OPEN FILE'),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          // Store the context before the async gap
+                          final currentContext = dialogContext;
+
+                          // Try to open the directory containing the file
+                          final success = await _exportService.openFileDirectory(filePath);
+
+                          // Check if the context is still valid after the async operation
+                          if (!success && currentContext.mounted) {
+                            ScaffoldMessenger.of(
+                              currentContext,
+                            ).showSnackBar(const SnackBar(content: Text('Could not open directory. Try using a file manager app.')));
+                          }
+                        },
+                        child: const Text('OPEN FOLDER'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(dialogContext).pop();
+                          if (mounted) {
+                            Navigator.of(context).pop(); // Pop the export screen too
+                          }
+                        },
+                        child: const Text('CLOSE'),
+                      ),
+                    ],
+                  );
+                },
+              );
+            } else if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export completed successfully')));
+              Navigator.pop(context);
+            }
+          } else if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export completed successfully')));
+            Navigator.pop(context);
           }
-          Navigator.pop(context);
         } else {
           setState(() {
             _errorMessage = 'Export failed';
@@ -197,9 +273,9 @@ class _ExportScreenState extends State<ExportScreen> {
                               Text('Mobile Export Note:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                               SizedBox(height: 8),
                               Text(
-                                'On mobile devices, the export file will be created and you will be prompted to share it '
-                                'using your device\'s share options. You can save it to your device storage, send it via email, '
-                                'or use any other sharing option available on your device.',
+                                'On mobile devices, the export file will be saved directly to your device\'s Download folder. '
+                                'You will be shown the file location after export is complete. You can access this file using '
+                                'any file manager app on your device.',
                               ),
                             ],
                           ),

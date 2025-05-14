@@ -78,7 +78,13 @@ class QrScannerService {
   Future<String?> _pickAndDecodeQrFromImageDesktop() async {
     _logger.d('Picking image file for QR decoding using file_picker (desktop)');
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']);
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
+        withData: true, // Ensure we can read the file content
+        lockParentWindow: true, // Improves UX on some platforms
+        dialogTitle: 'Select Image with QR Code', // More descriptive dialog title
+      );
 
       if (result != null && result.files.single.path != null) {
         String? filePath = result.files.single.path;

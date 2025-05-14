@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:openotp/models/otp_entry.dart';
@@ -31,6 +33,7 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
   String? _fileName;
   bool _isEncrypted = false;
   bool _fileAnalyzed = false;
+  List<String> _foundJsonFiles = [];
 
   // Paste import variables
   final TextEditingController _pasteController = TextEditingController();
@@ -53,6 +56,123 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
     // Initialize tab controller
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabChange);
+
+    // On Android, check for common JSON file locations
+    if (Platform.isAndroid) {
+      _checkCommonJsonLocations();
+    }
+  }
+
+  // Check common locations for JSON files on Android
+  Future<void> _checkCommonJsonLocations() async {
+    _logger.d('Checking common JSON file locations on Android');
+
+    List<String> commonPaths = ['/storage/emulated/0/Download', '/storage/emulated/0/Documents', '/storage/emulated/0'];
+
+    List<String> tempFoundFiles = [];
+
+    for (String path in commonPaths) {
+      try {
+        final dir = Directory(path);
+        if (await dir.exists()) {
+          _logger.d('Checking directory: $path');
+
+          final files = dir.listSync(recursive: false);
+          for (var file in files) {
+            if (file is File && file.path.toLowerCase().endsWith('.json')) {
+              _logger.i('Found potential JSON file: ${file.path}');
+              // We'll add it to the list and validate it later
+              tempFoundFiles.add(file.path);
+            }
+          }
+        }
+      } catch (e) {
+        _logger.w('Error checking directory $path: $e');
+      }
+    }
+
+    if (tempFoundFiles.isNotEmpty) {
+      _logger.i('Found ${tempFoundFiles.length} potential JSON files in common locations');
+
+      // Filter to only include valid JSON files
+      List<String> validJsonFiles = [];
+      for (String filePath in tempFoundFiles) {
+        try {
+          if (await _isValidJsonFile(filePath)) {
+            validJsonFiles.add(filePath);
+          }
+        } catch (e) {
+          _logger.w('Error validating JSON file: $e');
+        }
+      }
+
+      _logger.i('Found ${validJsonFiles.length} valid JSON files out of ${tempFoundFiles.length} potential files');
+      setState(() {
+        _foundJsonFiles = validJsonFiles;
+      });
+    }
+  }
+
+  // Select a found JSON file
+  Future<void> _selectFoundJsonFile(String filePath) async {
+    _logger.d('Selected found JSON file: $filePath');
+
+    // First validate that it's a valid JSON file
+    final isValid = await _isValidJsonFile(filePath);
+    if (!isValid) {
+      setState(() {
+        _errorMessage = 'The selected file is not a valid JSON file.';
+      });
+      return;
+    }
+
+    setState(() {
+      _selectedFilePath = filePath;
+      _fileName = filePath.split('/').last;
+      _fileAnalyzed = false;
+      _importData = null;
+      _errorMessage = null;
+    });
+
+    _analyzeFile();
+  }
+
+  // Check if a file is a valid JSON file
+  Future<bool> _isValidJsonFile(String filePath) async {
+    _logger.d('Checking if file is a valid JSON file: $filePath');
+
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        _logger.w('File does not exist: $filePath');
+        return false;
+      }
+
+      if (!filePath.toLowerCase().endsWith('.json')) {
+        _logger.w('File does not have .json extension: $filePath');
+        return false;
+      }
+
+      // Try to read and parse the file
+      final content = await file.readAsString();
+      if (content.isEmpty) {
+        _logger.w('File is empty: $filePath');
+        return false;
+      }
+
+      // Try to parse as JSON
+      try {
+        jsonDecode(content);
+        _logger.i('File is a valid JSON file: $filePath');
+        return true;
+      } catch (e) {
+        _logger.w('File is not valid JSON: $filePath - $e');
+        return false;
+      }
+    } catch (e) {
+      _logger.w('Error checking if file is valid JSON: $e');
+      return false;
+    }
   }
 
   @override
@@ -78,21 +198,80 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
     _logger.d('Selecting file for import');
 
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
+      FilePickerResult? result;
 
-      if (result != null && result.files.single.path != null) {
+      // Use platform-specific approach for better file system access
+      if (Platform.isAndroid) {
+        // On Android, we need to use a more direct approach to access all files
+        // First, try with FileType.any to show all files
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.any, // Show all files instead of just JSON
+          withData: true, // Ensure we can read the file content
+          lockParentWindow: true, // Improves UX on some platforms
+          dialogTitle: 'Select JSON File', // More descriptive dialog title
+        );
+
+        // If a file was selected, verify it's a JSON file
+        if (result != null && result.files.isNotEmpty && result.files.single.path != null) {
+          final path = result.files.single.path!;
+          if (!path.toLowerCase().endsWith('.json')) {
+            setState(() {
+              _errorMessage = 'Please select a JSON file (with .json extension)';
+            });
+            return;
+          }
+
+          // Validate that it's a valid JSON file
+          final isValid = await _isValidJsonFile(path);
+          if (!isValid) {
+            setState(() {
+              _errorMessage = 'The selected file is not a valid JSON file.';
+            });
+            return;
+          }
+        }
+      } else {
+        // For other platforms, use the standard approach
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          withData: true, // Ensure we can read the file content
+          lockParentWindow: true, // Improves UX on some platforms
+          dialogTitle: 'Select JSON File', // More descriptive dialog title
+        );
+      }
+
+      _logger.d('File picker result: ${result != null ? result.files.length : 0} files selected');
+
+      if (result != null && result.files.isNotEmpty && result.files.single.path != null) {
+        final path = result.files.single.path;
+        final name = result.files.single.name;
+
+        _logger.i('Selected file path: $path');
+        _logger.i('Selected file name: $name');
+
         setState(() {
-          _selectedFilePath = result.files.single.path;
-          _fileName = result.files.single.name;
+          _selectedFilePath = path;
+          _fileName = name;
           _fileAnalyzed = false;
           _importData = null;
           _errorMessage = null;
         });
 
         _analyzeFile();
+      } else {
+        _logger.d('No file selected or file path is null');
+
+        // On Android, if the file picker didn't return a valid result,
+        // it might be due to permission issues or limitations in the file picker.
+        if (Platform.isAndroid) {
+          setState(() {
+            _errorMessage = 'No file selected. Try using a file manager app to locate your JSON file first.';
+          });
+        }
       }
-    } catch (e) {
-      _logger.e('Error selecting file', e);
+    } catch (e, stackTrace) {
+      _logger.e('Error selecting file', e, stackTrace);
       setState(() {
         _errorMessage = 'Error selecting file: ${e.toString()}';
       });
@@ -104,6 +283,46 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
     _logger.d('Analyzing selected file');
 
     if (_selectedFilePath == null) return;
+
+    // Log more details about the file path to help with debugging
+    _logger.d('File path details:');
+    _logger.d('- Full path: $_selectedFilePath');
+
+    try {
+      final file = File(_selectedFilePath!);
+      final exists = await file.exists();
+      _logger.d('- File exists: $exists');
+
+      if (!exists) {
+        setState(() {
+          _errorMessage = 'File not found: $_selectedFilePath';
+        });
+        return;
+      }
+
+      if (!_selectedFilePath!.toLowerCase().endsWith('.json')) {
+        setState(() {
+          _errorMessage = 'Selected file is not a JSON file. Please select a file with .json extension.';
+        });
+        return;
+      }
+
+      final size = await file.length();
+      _logger.d('- File size: $size bytes');
+
+      if (size == 0) {
+        setState(() {
+          _errorMessage = 'Selected file is empty.';
+        });
+        return;
+      }
+    } catch (e) {
+      _logger.w('Error checking file details: $e');
+      setState(() {
+        _errorMessage = 'Error accessing file: ${e.toString()}';
+      });
+      return;
+    }
 
     try {
       // Try to read the file without decryption first to determine if it's encrypted
@@ -482,6 +701,70 @@ class _ImportScreenState extends State<ImportScreen> with SingleTickerProviderSt
                                           ElevatedButton(onPressed: _selectFile, child: const Text('Browse')),
                                         ],
                                       ),
+                                      if (Platform.isAndroid) ...[
+                                        const SizedBox(height: 8),
+                                        const Text(
+                                          'Tip: If you can\'t find your JSON file, try using a file manager app to locate it first, '
+                                          'or move it to a common location like Downloads.',
+                                          style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(_foundJsonFiles.isNotEmpty ? 'Found JSON files on your device:' : 'No JSON files found in common locations'),
+                                            IconButton(icon: const Icon(Icons.refresh), tooltip: 'Scan for JSON files', onPressed: _checkCommonJsonLocations),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        if (_foundJsonFiles.isNotEmpty) ...[
+                                          Container(
+                                            height: 150,
+                                            decoration: BoxDecoration(
+                                              border: Border.all(color: Theme.of(context).dividerColor),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: ListView.builder(
+                                              itemCount: _foundJsonFiles.length,
+                                              itemBuilder: (context, index) {
+                                                final filePath = _foundJsonFiles[index];
+                                                final fileName = filePath.split('/').last;
+                                                return ListTile(
+                                                  dense: true,
+                                                  title: Text(fileName),
+                                                  subtitle: Text(filePath, style: const TextStyle(fontSize: 12)),
+                                                  onTap: () => _selectFoundJsonFile(filePath),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                        const SizedBox(height: 16),
+                                        const Text('Or enter the file path directly:'),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: TextField(
+                                                decoration: const InputDecoration(
+                                                  hintText: '/storage/emulated/0/Download/example.json',
+                                                  border: OutlineInputBorder(),
+                                                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                  isDense: true,
+                                                ),
+                                                onChanged: (value) {
+                                                  setState(() {
+                                                    _selectedFilePath = value.trim().isNotEmpty ? value.trim() : null;
+                                                    _fileName = _selectedFilePath?.split('/').last;
+                                                  });
+                                                },
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            ElevatedButton(onPressed: _selectedFilePath != null ? _analyzeFile : null, child: const Text('Load')),
+                                          ],
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),

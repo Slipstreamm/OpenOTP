@@ -58,28 +58,38 @@ class _PasswordEntryWidgetState extends State<PasswordEntryWidget> {
   }
 
   Future<void> _authenticateWithBiometrics() async {
-    if (_isAuthenticating) return;
+    if (_isAuthenticating) {
+      _logger.d('Biometric authentication already in progress, ignoring request');
+      return;
+    }
 
+    _logger.i('Starting biometric authentication');
     setState(() {
       _isAuthenticating = true;
       _errorMessage = null;
     });
 
     try {
+      _logger.d('Calling authenticateWithBiometrics()');
       final authenticated = await widget.authenticateWithBiometrics();
+      _logger.i('Biometric authentication result: $authenticated');
 
       if (authenticated && mounted) {
+        _logger.i('Biometric authentication successful, calling onAuthenticated()');
         widget.onAuthenticated();
       } else if (mounted) {
+        _logger.w('Biometric authentication failed or was cancelled');
         setState(() {
           _isAuthenticating = false;
+          _errorMessage = 'Biometric authentication failed. Please try again or use your password.';
         });
       }
-    } catch (e) {
-      _logger.e('Error during biometric authentication', e);
+    } catch (e, stackTrace) {
+      _logger.e('Error during biometric authentication', e, stackTrace);
       if (mounted) {
         setState(() {
           _isAuthenticating = false;
+          _errorMessage = 'Error: ${e.toString()}';
         });
       }
     }
